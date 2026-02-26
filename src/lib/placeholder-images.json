@@ -1,3 +1,34 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "worker1",
+      "description": "Photo of a farm worker, male",
+      "imageUrl": "https://images.unsplash.com/photo-1579256414191-78193791bd86?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8d29ya2VyJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzcxOTQ2MzQ1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "worker portrait"
+    },
+    {
+      "id": "worker2",
+      "description": "Photo of a farm worker, female",
+      "imageUrl": "https://images.unsplash.com/photo-1646227655588-b44f246c04fb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHx3b3JrZXIlMjBwb3J0cmFpdHxlbnwwfHx8fDE3NzE5NDYzNDV8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "worker portrait"
+    },
+    {
+      "id": "worker3",
+      "description": "Photo of a farm worker, male",
+      "imageUrl": "https://images.unsplash.com/photo-1646227655588-b44f246c04fb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHx3b3JrZXIlMjBwb3J0cmFpdHxlbnwwfHx8fDE3NzE5NDYzNDV8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "worker portrait"
+    },
+    {
+      "id": "worker4",
+      "description": "Photo of a farm worker, female",
+      "imageUrl": "https://images.unsplash.com/photo-1579256414191-78193791bd86?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8d29ya2VyJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzcxOTQ2MzQ1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "worker portrait"
+    },
+    {
+      "id": "worker5",
+      "description": "Photo of a farm worker, male",
+      "imageUrl": "https://images.unsplash.com/photo-1651001525995-b7171e96eef8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHx3b3JrZXIlMjBwb3J0cmFpdHxlbnwwfHx8fDE3NzE5NDYzNDV8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "worker portrait"
+    }
+  ]
 }
