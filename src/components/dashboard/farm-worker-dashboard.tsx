@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -6,20 +7,101 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Clock, Hourglass, Tractor, DollarSign, Check } from "lucide-react"
+import { Clock, Hourglass, Tractor, DollarSign, Check, Loader2 } from "lucide-react"
+import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
+import { collection, query, where, doc, limit } from "firebase/firestore"
+import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { format, differenceInMinutes } from "date-fns"
+import { useToast } from "@/hooks/use-toast"
+import type { AttendanceRecord } from "@/lib/types"
 
-// Dummy data for now - this will be replaced with real data from Firestore
+// Dummy data for now
 const todaysTasks = [
   { id: 'T004', name: 'Irrigation', field: 'North Field', status: 'In Progress' },
   { id: 'T005', name: 'Fertilizer Application', field: 'South Field', status: 'Pending' },
 ];
 
 export function FarmWorkerDashboard() {
-  const [isClockedIn, setIsClockedIn] = React.useState(false);
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  
+  const [isClocking, setIsClocking] = React.useState(false);
 
-  const handleClockToggle = () => {
-    setIsClockedIn(!isClockedIn);
+  const attendanceQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    return query(
+      collection(firestore, 'farm_workers', user.uid, 'attendance_records'),
+      where('date', '==', todayStr),
+      limit(1)
+    );
+  }, [firestore, user]);
+
+  const { data: attendanceData, isLoading: isAttendanceLoading } = useCollection<AttendanceRecord>(attendanceQuery);
+  
+  const todaysRecord = attendanceData?.[0];
+  const isClockedIn = todaysRecord && !todaysRecord.timeOut;
+  const hasClockedOut = todaysRecord && todaysRecord.timeOut;
+
+  const handleClockIn = async () => {
+    if (!firestore || !user) return;
+    setIsClocking(true);
+    const newRecord: Omit<AttendanceRecord, 'id'> = {
+      workerId: user.uid,
+      date: format(new Date(), 'yyyy-MM-dd'),
+      timeIn: new Date().toISOString(),
+      timeOut: null,
+      totalHoursWorked: null,
+      createdAt: new Date().toISOString(),
+    };
+    
+    addDocumentNonBlocking(collection(firestore, 'farm_workers', user.uid, 'attendance_records'), newRecord);
+    toast({ title: "Clocked In", description: "Your shift has started." });
+    setIsClocking(false);
   };
+
+  const handleClockOut = async () => {
+    if (!firestore || !user || !todaysRecord) return;
+    setIsClocking(true);
+    const recordRef = doc(firestore, 'farm_workers', user.uid, 'attendance_records', todaysRecord.id);
+    const timeIn = new Date(todaysRecord.timeIn);
+    const timeOut = new Date();
+    // Calculate hours with decimals
+    const hours = differenceInMinutes(timeOut, timeIn) / 60;
+
+    updateDocumentNonBlocking(recordRef, {
+      timeOut: timeOut.toISOString(),
+      totalHoursWorked: hours,
+    });
+    toast({ title: "Clocked Out", description: "Your shift has ended." });
+    setIsClocking(false);
+  };
+
+  const getClockButton = () => {
+    if (isAttendanceLoading || isClocking) {
+        return (
+            <Button className="w-full" disabled>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Please wait
+            </Button>
+        );
+    }
+    if (hasClockedOut) {
+        return <Button className="w-full" disabled>Clocked Out for Today</Button>
+    }
+    if (isClockedIn) {
+        return <Button onClick={handleClockOut} className="w-full" variant="destructive">Clock Out</Button>
+    }
+    return <Button onClick={handleClockIn} className="w-full">Clock In</Button>
+  }
+  
+  const getStatusMessage = () => {
+    if (isAttendanceLoading) return "Loading status...";
+    if (hasClockedOut) return `You clocked out for today. Total hours: ${todaysRecord.totalHoursWorked?.toFixed(2) || 0}`;
+    if (isClockedIn) return `Clocked in since ${format(new Date(todaysRecord.timeIn), 'p')}.`;
+    return "You are currently clocked out.";
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -30,11 +112,9 @@ export function FarmWorkerDashboard() {
                 <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                <Button onClick={handleClockToggle} className="w-full">
-                    {isClockedIn ? 'Clock Out' : 'Clock In'}
-                </Button>
-                <p className="text-xs text-muted-foreground mt-2">
-                    {isClockedIn ? "You are currently clocked in." : "You are currently clocked out."}
+                {getClockButton()}
+                <p className="text-xs text-muted-foreground mt-2 h-8">
+                    {getStatusMessage()}
                 </p>
             </CardContent>
         </Card>

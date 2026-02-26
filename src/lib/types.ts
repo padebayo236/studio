@@ -1,3 +1,4 @@
+
 export type UserRole = 'Admin' | 'FarmManager' | 'FarmWorker' | 'Accountant';
 
 export interface UserProfile {
@@ -29,13 +30,14 @@ export interface Worker {
   photoHint: string;
 }
 
-export interface Attendance {
-  attendanceId: string;
+export interface AttendanceRecord {
+  id?: string;
   workerId: string;
-  date: string; // ISO 8601
-  clockIn: string; // ISO 8601
-  clockOut: string; // ISO 8601
-  totalHours: number;
+  date: string; // "yyyy-MM-dd"
+  timeIn: string; // ISO string
+  timeOut: string | null; // ISO string
+  totalHoursWorked: number | null;
+  createdAt?: string; // ISO string
 }
 
 export type TaskStatus = 'Pending' | 'In Progress' | 'Completed';
