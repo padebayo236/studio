@@ -1,10 +1,9 @@
-
 'use client';
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, updateDoc, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, doc, getDocs, collectionGroup } from 'firebase/firestore';
 import type { ProductivityEntry, Worker, FarmField, FarmTask } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -59,26 +58,60 @@ export default function ProductivityPage() {
   const [aiInsights, setAiInsights] = React.useState<any>(null);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [showInsightsDialog, setShowInsightsDialog] = React.useState(false);
+  
+  const [entries, setEntries] = React.useState<ProductivityEntry[]>([]);
+  const [isEntriesLoading, setIsEntriesLoading] = React.useState(true);
+  const [error, setError] = React.useState<Error | null>(null);
 
-  const productivityQuery = useMemoFirebase(() => {
-    if (!firestore || !userProfile) return null;
-    if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
-      return collectionGroup(firestore, 'productivity_entries');
+  React.useEffect(() => {
+    if (isAuthLoading) return;
+    if (!userProfile) {
+      setIsEntriesLoading(false);
+      return;
     }
-    // Note: A more complex query would be needed for FarmManagers to only see their workers' entries.
-    // This would likely involve fetching managed workers first, then querying their subcollections.
-    // For simplicity, we allow managers to see all entries for now. A real app would need stricter rules.
-     if (userProfile.role === 'FarmManager') {
-        return collectionGroup(firestore, 'productivity_entries');
-     }
-    return null;
-  }, [firestore, userProfile]);
 
-  const {
-    data: entries,
-    isLoading: isEntriesLoading,
-    error,
-  } = useCollection<ProductivityEntry>(productivityQuery);
+    const fetchProductivityEntries = async () => {
+      if (!firestore) return;
+      setIsEntriesLoading(true);
+
+      try {
+        let productivityQuery;
+        if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
+          productivityQuery = query(collectionGroup(firestore, 'productivity_entries'));
+        } else if (userProfile.role === 'FarmManager') {
+           const managedWorkersQuery = query(collection(firestore, 'farm_workers'), where('managerId', '==', userProfile.id));
+           const managedWorkersSnapshot = await getDocs(managedWorkersQuery);
+           const workerIds = managedWorkersSnapshot.docs.map(doc => doc.id);
+           
+           if (workerIds.length === 0) {
+             setEntries([]);
+             setIsEntriesLoading(false);
+             return;
+           }
+
+           // Firestore 'in' queries are limited to 30 items.
+           productivityQuery = query(collectionGroup(firestore, 'productivity_entries'), where('workerId', 'in', workerIds.slice(0, 30)));
+        } else {
+            setIsEntriesLoading(false);
+            return;
+        }
+
+        const querySnapshot = await getDocs(productivityQuery);
+        const fetchedEntries = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        } as ProductivityEntry));
+        setEntries(fetchedEntries);
+      } catch (e: any) {
+        setError(e);
+        console.error("Error fetching productivity entries:", e);
+      } finally {
+        setIsEntriesLoading(false);
+      }
+    };
+
+    fetchProductivityEntries();
+  }, [isAuthLoading, userProfile, firestore]);
 
   // Fetch related data to enrich the table
   const workersRef = useMemoFirebase(() => firestore && collection(firestore, 'farm_workers'), [firestore]);
