@@ -22,7 +22,7 @@ import {
   } from "@/components/ui/select"
 import { Input } from '@/components/ui/input';
 import { useAuth, useFirestore, useUser } from '@/firebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -63,6 +63,11 @@ export function SignUpForm() {
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       if (userCredential.user) {
         const userId = userCredential.user.uid;
+        
+        await updateProfile(userCredential.user, {
+            displayName: data.name
+        });
+
         const userProfileRef = doc(firestore, 'user_profiles', userId);
         const profileData = {
             id: userId,

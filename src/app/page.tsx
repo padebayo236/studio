@@ -2,53 +2,31 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@/firebase';
-import { Loader2 } from 'lucide-react';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
-import { StatCard } from "@/components/dashboard/stat-card"
-import { OverviewTab } from "@/components/dashboard/overview-tab"
-import { TasksTab } from "@/components/dashboard/tasks-tab"
-import { WorkersTab } from "@/components/dashboard/workers-tab"
-import {
-  Users,
-  Tractor,
-  DollarSign,
-  ClipboardCheck,
-  Search,
-  PanelLeft,
-} from "lucide-react"
-import Link from "next/link"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { MainNav } from "@/components/main-nav"
-import { UserNav } from "@/components/user-nav"
-import { AgriProLogo } from "@/components/icons"
-import { demoData } from "@/lib/demo-data"
+import { useUserProfile } from '@/hooks/use-user-profile';
+import { Loader2, Search, PanelLeft } from 'lucide-react';
+import Link from "next/link";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { MainNav } from "@/components/main-nav";
+import { UserNav } from "@/components/user-nav";
+import { AgriProLogo } from "@/components/icons";
+import { AdminDashboard } from '@/components/dashboard/admin-dashboard';
+import { FarmManagerDashboard } from '@/components/dashboard/farm-manager-dashboard';
+import { FarmWorkerDashboard } from '@/components/dashboard/farm-worker-dashboard';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-export default function Dashboard() {
-  const { user, isUserLoading } = useUser();
+function DashboardPage() {
+  const { user, userProfile, isLoading, error } = useUserProfile();
   const router = useRouter();
 
   React.useEffect(() => {
-    if (!isUserLoading && !user) {
+    if (!isLoading && !user) {
       router.replace('/login');
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isLoading, router]);
 
-  if (isUserLoading || !user) {
+  if (isLoading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-16 w-16 animate-spin" />
@@ -56,9 +34,55 @@ export default function Dashboard() {
     );
   }
 
-  const activeWorkers = demoData.workers.filter(w => w.status === 'Active').length;
-  const totalTasks = demoData.tasks.length;
-  const totalOutput = demoData.productivity.reduce((sum, p) => sum + p.outputQuantity, 0);
+  // After auth is loaded, but profile is still loading or there was an error fetching it.
+  if (!userProfile) {
+    // If there's an error, it's likely a permissions issue on the user_profiles collection
+    if (error) {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                <Card className="w-1/2">
+                    <CardHeader>
+                        <CardTitle>Error</CardTitle>
+                        <CardDescription>Could not load user profile.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <p>There was a problem fetching your user data. This might be a permission issue. Please contact support.</p>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
+    // Still loading profile
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-16 w-16 animate-spin" />
+      </div>
+    );
+  }
+
+
+  const renderDashboardByRole = () => {
+    switch (userProfile.role) {
+      case 'Admin':
+        return <AdminDashboard />;
+      case 'FarmManager':
+        return <FarmManagerDashboard />;
+      case 'FarmWorker':
+        return <FarmWorkerDashboard />;
+      default:
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Unknown Role</CardTitle>
+                    <CardDescription>Your user role is not recognized.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <p>Please contact an administrator to get a valid role assigned to your account.</p>
+                </CardContent>
+            </Card>
+        )
+    }
+  };
 
   return (
     <div className="grid min-h-screen w-full lg:grid-cols-[280px_1fr]">
@@ -107,78 +131,11 @@ export default function Dashboard() {
           <UserNav />
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <StatCard
-              title="Active Workers"
-              value={activeWorkers.toString()}
-              icon={Users}
-              description="Total active workers today"
-            />
-            <StatCard
-              title="Total Output (kg)"
-              value={totalOutput.toLocaleString()}
-              icon={Tractor}
-              description="This month's harvest"
-            />
-            <StatCard
-              title="Pending Tasks"
-              value={demoData.tasks.filter(t => t.status === 'Pending').length.toString()}
-              icon={ClipboardCheck}
-              description="Tasks to be started"
-            />
-            <StatCard
-              title="Estimated Payroll"
-              value={`$${(demoData.payroll.reduce((acc, p) => acc + p.totalPayment, 0) / 1000).toFixed(1)}k`}
-              icon={DollarSign}
-              description="This month's labor cost"
-            />
-          </div>
-          <Tabs defaultValue="overview">
-            <TabsList>
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="tasks">Tasks</TabsTrigger>
-              <TabsTrigger value="workers">Workers</TabsTrigger>
-              <TabsTrigger value="payroll">Payroll</TabsTrigger>
-              <TabsTrigger value="reports">Reports</TabsTrigger>
-            </TabsList>
-            <TabsContent value="overview">
-              <OverviewTab />
-            </TabsContent>
-            <TabsContent value="tasks">
-              <TasksTab />
-            </TabsContent>
-            <TabsContent value="workers">
-              <WorkersTab />
-            </TabsContent>
-            <TabsContent value="payroll">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Payroll</CardTitle>
-                  <CardDescription>
-                    Monthly payroll summary. This feature is under development.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p>Payroll data will be displayed here.</p>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            <TabsContent value="reports">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Reports</CardTitle>
-                  <CardDescription>
-                    Generate and download reports. This feature is under development.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p>Report generation options will be available here.</p>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+          {renderDashboardByRole()}
         </main>
       </div>
     </div>
   )
 }
+
+export default DashboardPage;

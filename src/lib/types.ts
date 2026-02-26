@@ -1,12 +1,13 @@
-export type UserRole = 'Admin' | 'Farm Manager' | 'Farm Worker';
+export type UserRole = 'Admin' | 'FarmManager' | 'FarmWorker';
 
-export interface User {
-  userId: string;
+export interface UserProfile {
+  id: string;
   name: string;
-  role: UserRole;
   email: string;
-  phone?: string;
-  avatarUrl?: string;
+  role: UserRole;
+  createdAt: string;
+  phoneNumber?: string;
+  lastLoginAt?: string;
 }
 
 export interface Worker {
