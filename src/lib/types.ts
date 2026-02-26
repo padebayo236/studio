@@ -1,5 +1,3 @@
-
-
 export type UserRole = 'Admin' | 'FarmManager' | 'FarmWorker' | 'Accountant';
 
 export interface UserProfile {
@@ -16,7 +14,7 @@ export type EmploymentType = 'Permanent' | 'Seasonal' | 'Daily Wage';
 export type WorkerStatus = 'Active' | 'Inactive';
 
 export interface Worker {
-  id?: string;
+  id: string;
   workerId: string;
   name: string;
   age: number;
@@ -32,7 +30,7 @@ export interface Worker {
 }
 
 export interface AttendanceRecord {
-  id?: string;
+  id: string;
   workerId: string;
   date: string; // "yyyy-MM-dd"
   timeIn: string; // ISO string
@@ -43,10 +41,15 @@ export interface AttendanceRecord {
 
 export type TaskStatus = 'Pending' | 'In Progress' | 'Completed';
 export type CropType = 'Maize' | 'Rice' | 'Tomato' | 'Cassava' | 'Other';
-export type TaskType = 'Planting' | 'Weeding' | 'Harvesting' | 'Irrigation' | 'Fertilizer Application';
+export type TaskType =
+  | 'Planting'
+  | 'Weeding'
+  | 'Harvesting'
+  | 'Irrigation'
+  | 'Fertilizer Application';
 
 export interface FarmTask {
-  id?: string;
+  id: string;
   fieldId: string;
   cropType: CropType;
   taskType: TaskType;
@@ -62,7 +65,7 @@ export interface FarmTask {
 }
 
 export interface FarmField {
-  id?: string;
+  id: string;
   name: string;
   size: number;
   sizeUnit: string;
@@ -73,21 +76,20 @@ export interface FarmField {
 }
 
 export interface ProductivityEntry {
-    id?: string;
-    workerId: string;
-    fieldId: string;
-    taskId: string;
-    date: string; // ISO Date string
-    outputQuantity: number;
-    outputUnit: string;
-    hoursWorkedForEntry: number;
-    notes?: string;
-    createdAt: string; // ISO DateTime string
+  id: string;
+  workerId: string;
+  fieldId: string;
+  taskId: string;
+  date: string; // ISO Date string
+  outputQuantity: number;
+  outputUnit: string;
+  hoursWorkedForEntry: number;
+  notes?: string;
+  createdAt: string; // ISO DateTime string
 }
 
-
 export interface PayrollSummary {
-  id?: string;
+  id: string;
   workerId: string;
   month: number;
   year: number;
@@ -107,4 +109,14 @@ export interface ProductivityDataPoint {
 export interface LaborDistributionDataPoint {
   crop: CropType;
   workers: number;
+}
+
+export interface MonthlyOutputDataPoint {
+    month: string;
+    output: number;
+}
+
+export interface ProductivityByWorkerDataPoint {
+    worker: string;
+    output: number;
 }

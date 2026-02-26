@@ -23,9 +23,8 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import type { Worker, EmploymentType, WorkerStatus } from '@/lib/types';
-import { demoData } from '@/lib/demo-data';
-import { useFirestore } from '@/firebase';
+import type { Worker, EmploymentType, WorkerStatus, FarmField } from '@/lib/types';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import {
   addDocumentNonBlocking,
@@ -80,6 +79,9 @@ export function WorkerForm({ worker, onFormSubmit }: WorkerFormProps) {
           photoUrl: '',
         },
   });
+
+  const fieldsRef = useMemoFirebase(() => (firestore ? collection(firestore, 'farm_fields') : null), [firestore]);
+  const { data: fieldsData } = useCollection<FarmField>(fieldsRef);
 
   const processSubmit = async (data: WorkerFormValues) => {
     if (!firestore) {
@@ -276,9 +278,9 @@ export function WorkerForm({ worker, onFormSubmit }: WorkerFormProps) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {demoData.fields.map((f) => (
-                      <SelectItem key={f.fieldId} value={f.fieldName}>
-                        {f.fieldName}
+                    {fieldsData?.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

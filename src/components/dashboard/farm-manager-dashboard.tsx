@@ -1,87 +1,153 @@
-
-"use client"
-import * as React from "react";
-import { StatCard } from "@/components/dashboard/stat-card"
-import { Users, ClipboardList, Tractor, UserCheck, AlertTriangle } from "lucide-react"
-import { useUserProfile } from "@/hooks/use-user-profile";
-import { useFirestore } from "@/firebase";
-import { collection, query, where, getDocs, collectionGroup } from "firebase/firestore";
-import { format } from "date-fns";
+'use client';
+import * as React from 'react';
+import { StatCard } from '@/components/dashboard/stat-card';
+import {
+  Users,
+  ClipboardList,
+  UserCheck,
+  AlertTriangle,
+} from 'lucide-react';
+import { useUserProfile } from '@/hooks/use-user-profile';
+import { useFirestore } from '@/firebase';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  collectionGroup,
+} from 'firebase/firestore';
+import { format } from 'date-fns';
+import type { FarmTask, Worker } from '@/lib/types';
+import { Loader2 } from 'lucide-react';
 
 export function FarmManagerDashboard() {
   const { userProfile } = useUserProfile();
   const firestore = useFirestore();
-  const [presentWorkers, setPresentWorkers] = React.useState<number | string>("-");
+  const [stats, setStats] = React.useState({
+    presentWorkers: '-',
+    totalWorkers: '-',
+    activeTasks: '-',
+    overdueTasks: '-',
+  });
+  const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (!userProfile || !firestore || userProfile.role !== 'FarmManager') return;
+    if (!userProfile || !firestore || userProfile.role !== 'FarmManager') {
+      setIsLoading(false);
+      return;
+    };
 
-    const fetchPresentWorkers = async () => {
-      const todayStr = format(new Date(), 'yyyy-MM-dd');
-      
-      // 1. Get workers managed by this manager
-      const workersQuery = query(collection(firestore, 'farm_workers'), where('managerId', '==', userProfile.id));
-      const workersSnapshot = await getDocs(workersQuery);
-      const workerIds = workersSnapshot.docs.map(doc => doc.id);
-
-      if (workerIds.length === 0) {
-        setPresentWorkers(0);
-        return;
-      }
-      
-      // 2. Find which of them have an active attendance record for today
-      // Firestore 'in' query is limited to 30 items. This is a limitation for now.
-      const attendanceQuery = query(
-        collectionGroup(firestore, 'attendance_records'),
-        where('workerId', 'in', workerIds.slice(0, 30)),
-        where('date', '==', todayStr),
-        where('timeOut', '==', null)
-      );
-
+    const fetchManagerData = async () => {
+      setIsLoading(true);
       try {
-        const attendanceSnapshot = await getDocs(attendanceQuery);
-        setPresentWorkers(attendanceSnapshot.size);
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+        // 1. Get workers managed by this manager
+        const workersQuery = query(
+          collection(firestore, 'farm_workers'),
+          where('managerId', '==', userProfile.id)
+        );
+        const workersSnapshot = await getDocs(workersQuery);
+        const managedWorkers = workersSnapshot.docs.map(
+          (doc) => ({ id: doc.id, ...(doc.data() as Worker) })
+        );
+        const workerIds = managedWorkers.map((w) => w.id);
+        const totalWorkers = managedWorkers.length;
+
+        let presentWorkers = 0;
+        if (workerIds.length > 0) {
+          // Firestore 'in' query is limited to 30 items. This is a limitation for now.
+          const chunks = [];
+          for (let i = 0; i < workerIds.length; i += 30) {
+            chunks.push(workerIds.slice(i, i + 30));
+          }
+          
+          let presentCount = 0;
+          for (const chunk of chunks) {
+            const attendanceQuery = query(
+              collectionGroup(firestore, 'attendance_records'),
+              where('workerId', 'in', chunk),
+              where('date', '==', todayStr)
+            );
+            const attendanceSnapshot = await getDocs(attendanceQuery);
+            presentCount += attendanceSnapshot.size;
+          }
+          presentWorkers = presentCount;
+        }
+
+        // 2. Get tasks managed by this manager
+        const tasksQuery = query(
+          collection(firestore, 'farm_tasks'),
+          where('managerId', '==', userProfile.id)
+        );
+        const tasksSnapshot = await getDocs(tasksQuery);
+        const managedTasks = tasksSnapshot.docs.map(
+          (doc) => ({ id: doc.id, ...(doc.data() as FarmTask) })
+        );
+
+        const activeTasks = managedTasks.filter(
+          (t) => t.status === 'Pending' || t.status === 'In Progress'
+        ).length;
+        const overdueTasks = managedTasks.filter(
+          (t) => t.status !== 'Completed' && new Date(t.deadline) < new Date()
+        ).length;
+
+        setStats({
+          presentWorkers: String(presentWorkers),
+          totalWorkers: String(totalWorkers),
+          activeTasks: String(activeTasks),
+          overdueTasks: String(overdueTasks),
+        });
       } catch (error) {
-        console.error("Error fetching present workers:", error);
-        setPresentWorkers("Error");
+        console.error('Error fetching manager dashboard data:', error);
+        setStats({
+          presentWorkers: 'Error',
+          totalWorkers: 'Error',
+          activeTasks: 'Error',
+          overdueTasks: 'Error',
+        });
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    fetchPresentWorkers();
+    fetchManagerData();
   }, [userProfile, firestore]);
+  
+  if (isLoading) {
+    return (
+      <div className="flex w-full items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-       <StatCard
-          title="Workers Present"
-          value={String(presentWorkers)}
-          icon={UserCheck}
-          description="Workers clocked in today"
-        />
-        <StatCard
-          title="Tasks Assigned Today"
-          value={"-"}
-          icon={ClipboardList}
-          description="New and ongoing tasks for today"
-        />
-        <StatCard
-          title="Output per Field"
-          value={"-"}
-          icon={Tractor}
-          description="Live output from fields"
-        />
-         <StatCard
-          title="Worker Productivity"
-          value={"-"}
-          icon={Users}
-          description="Individual worker performance"
-        />
-        <StatCard
-          title="Task Alerts"
-          value={"-"}
-          icon={AlertTriangle}
-          description="Incomplete or overdue tasks"
-        />
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <StatCard
+        title="My Workers"
+        value={stats.totalWorkers}
+        icon={Users}
+        description="Total workers you manage"
+      />
+      <StatCard
+        title="Workers Present"
+        value={stats.presentWorkers}
+        icon={UserCheck}
+        description="Managed workers clocked in today"
+      />
+      <StatCard
+        title="Active Tasks"
+        value={stats.activeTasks}
+        icon={ClipboardList}
+        description="Your assigned tasks in progress"
+      />
+      <StatCard
+        title="Overdue Tasks"
+        value={stats.overdueTasks}
+        icon={AlertTriangle}
+        description="Tasks that are past their deadline"
+      />
     </div>
-  )
+  );
 }

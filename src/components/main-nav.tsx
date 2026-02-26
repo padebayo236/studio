@@ -8,11 +8,11 @@ import {
   Users,
   ClipboardList,
   Tractor,
-  Warehouse,
   FileText,
   DollarSign,
   Settings,
   Clock,
+  Map,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -23,7 +23,7 @@ const navItems = [
   { href: "/attendance", icon: Clock, label: "Attendance" },
   { href: "/tasks", icon: ClipboardList, label: "Tasks" },
   { href: "/productivity", icon: Tractor, label: "Productivity" },
-  { href: "/fields", icon: Warehouse, label: "Fields" },
+  { href: "/fields", icon: Map, label: "Fields" },
   { href: "/payroll", icon: DollarSign, label: "Payroll" },
   { href: "#", icon: FileText, label: "Reports" },
 ];

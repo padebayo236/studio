@@ -3,11 +3,10 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
-import { Loader2, Search, PanelLeft } from 'lucide-react';
+import { Loader2, PanelLeft, UserPlus, ListPlus } from 'lucide-react';
 import Link from "next/link";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { MainNav } from "@/components/main-nav";
 import { UserNav } from "@/components/user-nav";
 import { AgriProLogo } from "@/components/icons";
@@ -16,6 +15,8 @@ import { FarmManagerDashboard } from '@/components/dashboard/farm-manager-dashbo
 import { FarmWorkerDashboard } from '@/components/dashboard/farm-worker-dashboard';
 import { AccountantDashboard } from '@/components/dashboard/accountant-dashboard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { WorkerFormDialog } from '@/components/worker-form-dialog';
+import { TaskFormDialog } from '@/components/task-form-dialog';
 
 function DashboardPage() {
   const { user, userProfile, isLoading, error } = useUserProfile();
@@ -35,9 +36,7 @@ function DashboardPage() {
     );
   }
 
-  // After auth is loaded, but profile is still loading or there was an error fetching it.
   if (!userProfile) {
-    // If there's an error, it's likely a permissions issue on the user_profiles collection
     if (error) {
         return (
             <div className="flex min-h-screen items-center justify-center">
@@ -54,7 +53,6 @@ function DashboardPage() {
             </div>
         )
     }
-    // Still loading profile
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-16 w-16 animate-spin" />
@@ -124,13 +122,17 @@ function DashboardPage() {
               </div>
             </SheetContent>
           </Sheet>
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search..."
-              className="w-full bg-background pl-8 md:w-[200px] lg:w-[300px]"
-            />
+          <div className="flex-1 items-center gap-2 flex">
+            {(userProfile.role === 'Admin' || userProfile.role === 'FarmManager') && (
+              <>
+                <WorkerFormDialog>
+                    <Button size="sm" variant="outline"><UserPlus/>Add Worker</Button>
+                </WorkerFormDialog>
+                <TaskFormDialog>
+                    <Button size="sm" variant="outline"><ListPlus/>Assign Task</Button>
+                </TaskFormDialog>
+              </>
+            )}
           </div>
           <UserNav />
         </header>

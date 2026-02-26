@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -30,7 +29,8 @@ import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { generateTaskDescriptionAction } from "@/app/actions"
 import type { FarmTask, CropType, TaskType, FarmField, Worker } from "@/lib/types"
-import { useFirestore, useCollection, useMemoFirebase, useUserProfile } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
+import { useUserProfile } from "@/hooks/use-user-profile"
 import { collection, doc } from 'firebase/firestore';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { useToast } from "@/hooks/use-toast"
