@@ -4,21 +4,21 @@ import { Button } from "@/components/ui/button";
 
 export function LandingCTA() {
   return (
-    <section className="w-full py-12 md:py-24 lg:py-32 bg-primary/90 text-primary-foreground">
-      <div className="container grid items-center justify-center gap-4 px-4 text-center md:px-6">
-        <div className="space-y-3">
-          <h2 className="text-3xl font-bold tracking-tighter md:text-4xl/tight">
+    <section className="w-full py-16 md:py-24 lg:py-32 bg-muted/40">
+      <div className="container px-4 md:px-6">
+        <div className="flex flex-col items-center gap-4 text-center max-w-2xl mx-auto">
+          <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
             Ready to Modernize Your Farm Operations?
           </h2>
-          <p className="mx-auto max-w-[600px] text-primary-foreground/80 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+          <p className="text-muted-foreground md:text-xl/relaxed">
             Start managing your farm labor digitally with AgriPro Manager.
             Login to your account to get started.
           </p>
-        </div>
-        <div className="mx-auto w-full max-w-sm space-y-2">
+          <div className="mt-4">
             <Link href="/login" passHref>
-                <Button size="lg" className="w-full" variant="secondary">Login</Button>
+                <Button size="lg">Login to Your Account</Button>
             </Link>
+          </div>
         </div>
       </div>
     </section>

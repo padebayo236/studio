@@ -7,7 +7,6 @@ import {
   FileText,
   Users,
 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 const features = [
   {
@@ -44,33 +43,31 @@ const features = [
 
 export function LandingFeatures() {
   return (
-    <section id="features" className="w-full py-12 md:py-24 lg:py-32 bg-muted/40">
+    <section id="features" className="w-full py-16 md:py-24 lg:py-32 bg-muted/40">
       <div className="container px-4 md:px-6">
         <div className="flex flex-col items-center justify-center space-y-4 text-center">
-          <div className="space-y-2">
-            <div className="inline-block rounded-lg bg-primary/10 px-3 py-1 text-sm text-primary font-medium">
+          <div className="space-y-3 max-w-3xl">
+            <div className="inline-block rounded-lg bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
               Core Features
             </div>
             <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">
               Everything You Need to Manage Your Farm Labor
             </h2>
-            <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+            <p className="text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
               Our platform provides a comprehensive suite of tools to help you
               manage your farm's workforce efficiently and effectively.
             </p>
           </div>
         </div>
-        <div className="mx-auto grid max-w-5xl items-start gap-8 sm:grid-cols-2 md:gap-12 lg:max-w-none lg:grid-cols-3 pt-12">
+        <div className="mx-auto grid max-w-5xl items-start gap-8 pt-12 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((feature, index) => (
-            <Card key={index} className="hover:shadow-lg transition-shadow duration-300">
-              <CardHeader className="flex flex-row items-start gap-4">
+            <div key={index} className="flex flex-col items-center text-center gap-2 p-4 rounded-lg hover:shadow-lg transition-shadow">
+              <div className="bg-primary/10 p-3 rounded-full">
                 <feature.icon className="h-8 w-8 text-primary" />
-                <div className="space-y-1">
-                    <CardTitle>{feature.title}</CardTitle>
-                    <CardDescription>{feature.description}</CardDescription>
-                </div>
-              </CardHeader>
-            </Card>
+              </div>
+              <h3 className="text-lg font-bold">{feature.title}</h3>
+              <p className="text-sm text-muted-foreground">{feature.description}</p>
+            </div>
           ))}
         </div>
       </div>
