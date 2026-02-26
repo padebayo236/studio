@@ -30,47 +30,45 @@ function DashboardPage() {
     }
   }, [user, isLoading, router]);
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-16 w-16 animate-spin" />
-      </div>
-    );
-  }
-
-  // After loading, if there's an error, show it.
-  if (error) {
-    return (
-        <div className="flex min-h-screen items-center justify-center">
-            <Card className="w-1/2">
-                <CardHeader>
-                    <CardTitle>Error</CardTitle>
-                    <CardDescription>Could not load user profile.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <p>There was a problem fetching your user data. This might be a permission issue or a network problem.</p>
-                    <pre className="mt-4 whitespace-pre-wrap rounded-md bg-muted p-4 text-sm">{error.message}</pre>
-                    <Button onClick={() => router.replace('/login')} className="mt-4">
-                        Go to Login
-                    </Button>
-                </CardContent>
-            </Card>
-        </div>
-    )
-  }
-
-  // If loading is finished, but we still don't have a user or profile,
-  // it means the redirect is in progress or something is wrong. Show spinner.
-  if (!user || !userProfile) {
-    return (
-        <div className="flex min-h-screen items-center justify-center">
+  const renderMainContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex h-full flex-1 items-center justify-center">
           <Loader2 className="h-16 w-16 animate-spin" />
         </div>
       );
-  }
+    }
+  
+    if (error) {
+      return (
+          <div className="flex h-full flex-1 items-center justify-center">
+              <Card className="w-1/2">
+                  <CardHeader>
+                      <CardTitle>Error</CardTitle>
+                      <CardDescription>Could not load user profile.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                      <p>There was a problem fetching your user data. This might be a permission issue or a network problem.</p>
+                      <pre className="mt-4 whitespace-pre-wrap rounded-md bg-muted p-4 text-sm">{error.message}</pre>
+                      <Button onClick={() => router.replace('/login')} className="mt-4">
+                          Go to Login
+                      </Button>
+                  </CardContent>
+              </Card>
+          </div>
+      )
+    }
+  
+    if (!user || !userProfile) {
+      // This can happen briefly before redirect, or if auth fails silently.
+      // The useEffect will handle redirect. Show a loader.
+      return (
+          <div className="flex h-full flex-1 items-center justify-center">
+            <Loader2 className="h-16 w-16 animate-spin" />
+          </div>
+        );
+    }
 
-
-  const renderDashboardByRole = () => {
     switch (userProfile.role) {
       case 'Admin':
         return <AdminDashboard />;
@@ -93,7 +91,7 @@ function DashboardPage() {
             </Card>
         )
     }
-  };
+};
 
   return (
     <div className="grid min-h-screen w-full lg:grid-cols-[280px_1fr]">
@@ -132,7 +130,7 @@ function DashboardPage() {
             </SheetContent>
           </Sheet>
           <div className="flex-1 items-center gap-2 flex">
-            {(userProfile.role === 'Admin' || userProfile.role === 'FarmManager') && (
+            {!isLoading && (userProfile?.role === 'Admin' || userProfile?.role === 'FarmManager') && (
               <>
                 <WorkerFormDialog>
                     <Button size="sm" variant="outline"><UserPlus/>Add Worker</Button>
@@ -146,7 +144,7 @@ function DashboardPage() {
           <UserNav />
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
-          {renderDashboardByRole()}
+          {renderMainContent()}
         </main>
       </div>
     </div>
@@ -154,5 +152,3 @@ function DashboardPage() {
 }
 
 export default DashboardPage;
-
-    

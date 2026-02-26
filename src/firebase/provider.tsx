@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
@@ -74,19 +75,35 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return;
     }
 
-    setUserAuthState({ user: null, isUserLoading: true, userError: null }); // Reset on auth instance change
+    setUserAuthState({ user: null, isUserLoading: true, userError: null });
+
+    const authTimeout = setTimeout(() => {
+      // This will only fire if onAuthStateChanged has not completed in 5 seconds.
+      // It sets loading to false, which will cause a redirect to /login for unauthenticated users.
+      setUserAuthState(current => {
+        if (current.isUserLoading) {
+          return { ...current, isUserLoading: false, userError: new Error("Authentication timed out.") };
+        }
+        return current;
+      });
+    }, 5000); // 5 second timeout
 
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => { // Auth state determined
+        clearTimeout(authTimeout);
         setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
       },
       (error) => { // Auth listener error
+        clearTimeout(authTimeout);
         console.error("FirebaseProvider: onAuthStateChanged error:", error);
         setUserAuthState({ user: null, isUserLoading: false, userError: error });
       }
     );
-    return () => unsubscribe(); // Cleanup
+    return () => {
+      unsubscribe();
+      clearTimeout(authTimeout);
+    }; // Cleanup
   }, [auth]); // Depends on the auth instance
 
   // Memoize the context value
