@@ -34,6 +34,7 @@ import {
   ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
+  type ChartConfig,
 } from '@/components/ui/chart';
 import {
   Bar,
@@ -46,7 +47,6 @@ import {
   Cell,
   Line,
   LineChart,
-  ResponsiveContainer,
 } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 
@@ -56,7 +56,21 @@ const laborChartConfig = {
   Tomato: { label: 'Tomato', color: 'hsl(var(--chart-3))' },
   Cassava: { label: 'Cassava', color: 'hsl(var(--chart-4))' },
   Other: { label: 'Other', color: 'hsl(var(--chart-5))' },
-};
+} satisfies ChartConfig;
+
+const productivityChartConfig = {
+  output: {
+    label: "Output",
+    color: "hsl(var(--primary))",
+  },
+} satisfies ChartConfig;
+
+const monthlyOutputChartConfig = {
+  output: {
+    label: "Output",
+    color: "hsl(var(--primary))",
+  },
+} satisfies ChartConfig;
 
 export function AdminDashboard() {
   const firestore = useFirestore();
@@ -262,8 +276,8 @@ export function AdminDashboard() {
               Top 10 workers by total output (kg, all time).
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+          <CardContent className="pt-6">
+            <ChartContainer config={productivityChartConfig} className="w-full h-[300px]">
               <BarChart
                 data={productivityByWorker}
                 margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
@@ -283,11 +297,11 @@ export function AdminDashboard() {
                 />
                 <Bar
                   dataKey="output"
-                  fill="hsl(var(--primary))"
+                  fill="var(--color-output)"
                   radius={4}
                 />
               </BarChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           </CardContent>
         </Card>
         <Card>
@@ -297,8 +311,8 @@ export function AdminDashboard() {
               Number of workers assigned per primary crop type.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex items-center justify-center">
-            <ResponsiveContainer width="100%" height={300}>
+          <CardContent className="flex items-center justify-center pt-6">
+            <ChartContainer config={laborChartConfig} className="mx-auto aspect-square h-[300px]">
               <PieChart>
                 <ChartTooltip
                   cursor={false}
@@ -327,7 +341,7 @@ export function AdminDashboard() {
                   className="[&>*]:justify-center"
                 />
               </PieChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           </CardContent>
         </Card>
       </div>
@@ -338,8 +352,8 @@ export function AdminDashboard() {
               Total output (kg) over the last 12 months.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+          <CardContent className="pt-6">
+            <ChartContainer config={monthlyOutputChartConfig} className="w-full h-[300px]">
               <LineChart
                 data={monthlyOutput}
                 margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
@@ -354,17 +368,17 @@ export function AdminDashboard() {
                 <Line
                   dataKey="output"
                   type="monotone"
-                  stroke="hsl(var(--primary))"
+                  stroke="var(--color-output)"
                   strokeWidth={2}
                   dot={{
-                    fill: "hsl(var(--primary))",
+                    fill: "var(--color-output)",
                   }}
                   activeDot={{
                     r: 6,
                   }}
                 />
               </LineChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           </CardContent>
         </Card>
     </div>
