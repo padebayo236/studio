@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 /**
@@ -167,7 +168,7 @@ service cloud.firestore {
      */
     match /farm_workers/{farmWorkerId} {
       allow get: if isAdmin() || isAccountant() || isManagerOfResource() || isOwner(farmWorkerId);
-      allow list: if isAdmin() || isAccountant();
+      allow list: if isAdmin() || isAccountant() || isFarmManager();
       allow create: if isAdmin() || (isSignedIn() && request.resource.data.managerId == request.auth.uid);
       allow update: if isAdmin() || (resource != null && isManagerOfResource());
       allow delete: if isAdmin() || (resource != null && isManagerOfResource());

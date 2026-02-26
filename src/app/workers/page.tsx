@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, updateDoc } from 'firebase/firestore';
+import { collection, doc, updateDoc, query, where } from 'firebase/firestore';
 import type { Worker, EmploymentType, WorkerStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -68,15 +68,22 @@ export default function WorkersPage() {
     status: 'all',
   });
 
-  const workersRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'farm_workers') : null),
-    [firestore]
-  );
+  const workersQuery = useMemoFirebase(() => {
+    if (!firestore || !userProfile) return null;
+    if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
+        return collection(firestore, 'farm_workers');
+    }
+    if (userProfile.role === 'FarmManager') {
+        return query(collection(firestore, 'farm_workers'), where('managerId', '==', userProfile.id));
+    }
+    return null;
+  }, [firestore, userProfile]);
+
   const {
     data: workersData,
     isLoading: isWorkersLoading,
     error,
-  } = useCollection<Omit<Worker, 'id'>>(workersRef);
+  } = useCollection<Omit<Worker, 'id'>>(workersQuery);
 
   React.useEffect(() => {
     if (!isAuthLoading && !user) {
