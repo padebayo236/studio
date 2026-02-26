@@ -18,7 +18,7 @@ import {
 import { cn } from "@/lib/utils"
 
 const navItems = [
-  { href: "/", icon: LayoutDashboard, label: "Dashboard" },
+  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/workers", icon: Users, label: "Workers" },
   { href: "/attendance", icon: Clock, label: "Attendance" },
   { href: "/tasks", icon: ClipboardList, label: "Tasks" },
@@ -31,13 +31,13 @@ const navItems = [
 export function MainNav({ isMobile = false }: { isMobile?: boolean }) {
   const pathname = usePathname()
 
-  // For the dashboard link, we want it to be active for the root route "/"
-  const isDashboardActive = pathname === '/';
+  // For the dashboard link, we want it to be active for the dashboard route or the root (which redirects)
+  const isDashboardActive = pathname === '/dashboard' || pathname === '/';
 
   return (
     <nav className={cn("grid items-start px-4 text-sm font-medium", isMobile && "gap-2")}>
       {navItems.map((item) => {
-        const isActive = item.href === '/' ? isDashboardActive : pathname.startsWith(item.href);
+        const isActive = item.href === '/dashboard' ? isDashboardActive : pathname.startsWith(item.href);
         return (
           <Link
             key={item.label}

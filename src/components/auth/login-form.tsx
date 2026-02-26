@@ -63,7 +63,7 @@ export function LoginForm() {
 
   React.useEffect(() => {
     if (!isUserLoading && user) {
-        router.push('/');
+        router.push('/dashboard');
     }
   }, [user, isUserLoading, router]);
 

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import type { AttendanceRecord, Worker } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -33,20 +33,8 @@ export default function AttendancePage() {
   const [records, setRecords] = React.useState<any[]>([]);
   const [isDataLoading, setIsDataLoading] = React.useState(true);
   const [error, setError] = React.useState<Error | null>(null);
+  const [workerNameMap, setWorkerNameMap] = React.useState(new Map<string, string>());
 
-  const workersRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'workers') : null),
-    [firestore]
-  );
-  const { data: workersData } = useCollection<Omit<Worker, 'id'>>(workersRef);
-
-  const workerNameMap = React.useMemo(() => {
-    if (!workersData) return new Map();
-    return workersData.reduce((acc, worker) => {
-      acc.set(worker.id, worker.name);
-      return acc;
-    }, new Map<string, string>());
-  }, [workersData]);
 
   React.useEffect(() => {
     if (isProfileLoading) return;
@@ -54,16 +42,25 @@ export default function AttendancePage() {
       router.replace('/login');
       return;
     }
-    if (!userProfile) {
+    if (!userProfile || !firestore) {
         setIsDataLoading(false);
         return;
     }
 
-    const fetchAttendance = async () => {
-      if (!firestore) return;
+    const fetchAttendanceData = async () => {
       setIsDataLoading(true);
-
       try {
+        // 1. Fetch workers to create a name map
+        const workersQuery = collection(firestore, 'workers');
+        const workersSnapshot = await getDocs(workersQuery);
+        const nameMap = new Map<string, string>();
+        workersSnapshot.forEach(doc => {
+            const worker = doc.data() as Worker;
+            nameMap.set(doc.id, worker.name);
+        });
+        setWorkerNameMap(nameMap);
+
+        // 2. Fetch attendance based on role
         let attendanceQuery;
         if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
           attendanceQuery = query(collection(firestore, 'attendance'));
@@ -77,12 +74,8 @@ export default function AttendancePage() {
              setIsDataLoading(false);
              return;
            }
-
-           // Firestore 'in' queries are limited to 30 items.
-           // For managers with more workers, a more scalable solution would be needed.
            attendanceQuery = query(collection(firestore, 'attendance'), where('workerId', 'in', workerIds.slice(0, 30)));
         } else {
-            // Workers should not access this page.
             setIsDataLoading(false);
             return;
         }
@@ -101,7 +94,7 @@ export default function AttendancePage() {
       }
     };
 
-    fetchAttendance();
+    fetchAttendanceData();
   }, [isProfileLoading, user, userProfile, firestore, router]);
 
 
@@ -129,7 +122,7 @@ export default function AttendancePage() {
             <p>
               Please contact an administrator if you believe this is an error.
             </p>
-            <Button onClick={() => router.push('/')} className="mt-4">
+            <Button onClick={() => router.push('/dashboard')} className="mt-4">
               Go to Dashboard
             </Button>
           </CardContent>

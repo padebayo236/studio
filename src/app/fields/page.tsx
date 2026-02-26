@@ -83,7 +83,7 @@ export default function FieldsPage() {
           </CardHeader>
           <CardContent>
             <p>Please contact an administrator if you believe this is an error.</p>
-            <Button onClick={() => router.push('/')} className="mt-4">
+            <Button onClick={() => router.push('/dashboard')} className="mt-4">
               Go to Dashboard
             </Button>
           </CardContent>
