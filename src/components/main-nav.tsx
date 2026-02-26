@@ -1,4 +1,3 @@
-
 "use client"
 
 import Link from "next/link"
@@ -25,7 +24,7 @@ const navItems = [
   { href: "/productivity", icon: Tractor, label: "Productivity" },
   { href: "/fields", icon: Map, label: "Fields" },
   { href: "/payroll", icon: DollarSign, label: "Payroll" },
-  { href: "#", icon: FileText, label: "Reports" },
+  { href: "/reports", icon: FileText, label: "Reports" },
 ];
 
 export function MainNav({ isMobile = false }: { isMobile?: boolean }) {

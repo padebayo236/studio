@@ -8,6 +8,7 @@ export interface UserProfile {
   createdAt: string;
   phoneNumber?: string;
   lastLoginAt?: string;
+  assignedFieldIds?: string[];
 }
 
 export type EmploymentType = 'Permanent' | 'Seasonal' | 'Daily Wage';
@@ -27,6 +28,7 @@ export interface Worker {
   status: WorkerStatus;
   photoUrl: string;
   photoHint: string;
+  managerId: string;
 }
 
 export interface AttendanceRecord {
@@ -119,4 +121,16 @@ export interface MonthlyOutputDataPoint {
 export interface ProductivityByWorkerDataPoint {
     worker: string;
     output: number;
+}
+
+export type ReportType = 'monthlyProductivity' | 'payrollSummary' | 'fieldPerformance';
+
+export interface Report {
+    id: string;
+    reportType: ReportType;
+    generatedBy: string;
+    dateRangeStart: string;
+    dateRangeEnd: string;
+    generatedAt: string;
+    fileURL?: string;
 }
