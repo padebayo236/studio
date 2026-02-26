@@ -96,8 +96,22 @@ export function TaskForm({ task, onFormSubmit }: TaskFormProps) {
   }, [firestore, userProfile]);
   const { data: fieldsData } = useCollection<FarmField>(fieldsQuery);
   
-  const workersRef = useMemoFirebase(() => firestore && collection(firestore, 'farm_workers'), [firestore]);
-  const { data: workersData } = useCollection<Worker>(workersRef);
+  const workersQuery = useMemoFirebase(() => {
+    if (!firestore || !userProfile) return null;
+
+    // This form is only used by Admins and FarmManagers
+    if (userProfile.role === 'Admin') {
+      return collection(firestore, 'farm_workers');
+    }
+    if (userProfile.role === 'FarmManager') {
+      return query(
+        collection(firestore, 'farm_workers'),
+        where('managerId', '==', userProfile.id)
+      );
+    }
+    return null;
+  }, [firestore, userProfile]);
+  const { data: workersData } = useCollection<Worker>(workersQuery);
 
 
   const handleGenerateDescription = async () => {

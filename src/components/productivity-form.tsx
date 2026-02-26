@@ -80,8 +80,23 @@ export function ProductivityForm({ entry, onFormSubmit }: ProductivityFormProps)
   })
 
   // Data for form dropdowns
-  const workersRef = useMemoFirebase(() => firestore && collection(firestore, 'farm_workers'), [firestore]);
-  const { data: workersData } = useCollection<Worker>(workersRef);
+  const workersQuery = useMemoFirebase(() => {
+    if (!firestore || !userProfile) return null;
+
+    if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
+      return collection(firestore, 'farm_workers');
+    }
+    if (userProfile.role === 'FarmManager') {
+      return query(
+        collection(firestore, 'farm_workers'),
+        where('managerId', '==', userProfile.id)
+      );
+    }
+    // Workers don't need to fetch a list of workers for this form.
+    return null;
+  }, [firestore, userProfile]);
+  const { data: workersData } = useCollection<Worker>(workersQuery);
+
 
   const selectedWorkerId = form.watch("workerId");
 
