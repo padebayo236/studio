@@ -1,14 +1,13 @@
 {
   "entities": {
-    "UserProfile": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "UserProfile",
+    "User": {
+      "title": "User",
       "type": "object",
-      "description": "Represents a user account within the AgriPro Manager system, including administrative roles, farm managers, farm workers, and accountants who log in.",
+      "description": "Represents a user account within the AgriPro Manager system, including administrative roles, farm managers, and farm workers who log in. Controls role-based access and permissions.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the UserProfile entity, typically corresponding to a Firebase Authentication user ID."
+          "description": "Unique identifier for the User entity, corresponding to the Firebase Authentication user ID."
         },
         "name": {
           "type": "string",
@@ -19,48 +18,49 @@
           "description": "The email address of the user, used for login.",
           "format": "email"
         },
-        "phoneNumber": {
+        "phone": {
           "type": "string",
           "description": "The contact phone number of the user."
         },
         "role": {
           "type": "string",
-          "description": "The role of the user within the system, determining access permissions. (e.g., Admin, FarmManager, FarmWorker, Accountant)."
+          "description": "The role of the user within the system.",
+          "enum": ["admin", "manager", "worker"]
+        },
+        "assignedFieldIds": {
+          "type": "array",
+          "description": "For managers/workers, an array of Field IDs they are assigned to.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the user account.",
+          "enum": ["active", "inactive"]
         },
         "createdAt": {
           "type": "string",
           "description": "Timestamp when the user account was created.",
           "format": "date-time"
-        },
-        "lastLoginAt": {
-          "type": "string",
-          "description": "Timestamp of the user's last login.",
-          "format": "date-time"
         }
       },
-      "required": [
-        "id",
-        "name",
-        "email",
-        "role",
-        "createdAt"
-      ]
+      "required": ["id", "name", "email", "role", "status", "createdAt"]
     },
-    "FarmWorker": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "FarmWorker",
+    "Worker": {
+      "title": "Worker",
       "type": "object",
-      "description": "Represents a farm worker whose labor is managed and tracked by the system, regardless of whether they have a login account.",
+      "description": "Represents a farm worker whose labor is managed and tracked by the system. Stores detailed farm labor records.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the FarmWorker entity."
+          "description": "Unique identifier for the Worker entity."
         },
         "userId": {
           "type": "string",
-          "description": "Reference to the UserProfile entity if this worker has a login account. (Relationship: UserProfile 1:N FarmWorker)"
+          "description": "Reference to the User entity if this worker has a login account."
         },
-        "name": {
+        "fullName": {
           "type": "string",
           "description": "The full name of the farm worker."
         },
@@ -72,49 +72,41 @@
           "type": "string",
           "description": "The gender of the farm worker."
         },
-        "phoneNumber": {
+        "phone": {
           "type": "string",
           "description": "The contact phone number of the farm worker."
         },
         "address": {
-            "type": "string",
-            "description": "The physical address of the farm worker."
-        },
-        "assignedField": {
-            "type": "string",
-            "description": "Reference to the FarmField entity where this worker is currently assigned."
-        },
-        "assignedFieldIds": {
-          "type": "array",
-          "description": "References to FarmField entities where this worker is currently assigned or works. (Relationship: FarmField N:N FarmWorker)",
-          "items": {
-            "type": "string"
-          }
+          "type": "string",
+          "description": "The physical address of the farm worker."
         },
         "employmentType": {
           "type": "string",
-          "description": "The employment type of the worker (e.g., permanent, seasonal, daily wage)."
+          "description": "The employment type of the worker.",
+          "enum": ["permanent", "seasonal", "daily"]
+        },
+        "wageType": {
+          "type": "string",
+          "description": "The basis for wage calculation.",
+          "enum": ["hourly", "task-based"]
         },
         "wageRate": {
           "type": "number",
           "description": "The rate at which the worker is paid."
         },
-        "wageRateUnit": {
+        "assignedFieldId": {
           "type": "string",
-          "description": "The unit for the wage rate (e.g., 'per hour', 'per task')."
+          "description": "Reference to the Field entity where this worker is primarily assigned."
         },
-        "workerPhotoUrl": {
+        "photoURL": {
           "type": "string",
           "description": "URL to the worker's profile photo.",
           "format": "uri"
         },
         "status": {
           "type": "string",
-          "description": "The current employment status of the worker (e.g., Active, Inactive)."
-        },
-        "managerId": {
-          "type": "string",
-          "description": "Reference to the UserProfile (Manager role) who is responsible for managing this worker. (Relationship: UserProfile 1:N FarmWorker)"
+          "description": "The current employment status of the worker.",
+          "enum": ["active", "inactive"]
         },
         "createdAt": {
           "type": "string",
@@ -124,28 +116,42 @@
       },
       "required": [
         "id",
-        "name",
-        "age",
-        "gender",
+        "fullName",
         "employmentType",
+        "wageType",
         "wageRate",
         "status",
         "createdAt"
       ]
     },
-    "FarmField": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "FarmField",
+    "PerformanceSummary": {
+      "title": "PerformanceSummary",
       "type": "object",
-      "description": "Represents a specific agricultural field or plot within the farm.",
+      "description": "A summary of a worker's performance.",
+      "properties": {
+        "totalHoursWorked": {
+          "type": "number"
+        },
+        "totalOutput": {
+          "type": "number"
+        },
+        "productivityScore": {
+          "type": "number"
+        }
+      }
+    },
+    "Field": {
+      "title": "Field",
+      "type": "object",
+      "description": "Represents a specific agricultural field or plot within the farm. Links tasks, productivity, and workers to specific farmland.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the FarmField entity."
+          "description": "Unique identifier for the Field entity."
         },
-        "name": {
+        "fieldName": {
           "type": "string",
-          "description": "The name or identifier of the field (e.g., 'North Field', 'Plot C')."
+          "description": "The name or identifier of the field."
         },
         "size": {
           "type": "number",
@@ -153,19 +159,20 @@
         },
         "sizeUnit": {
           "type": "string",
-          "description": "The unit of measurement for the field size (e.g., 'acres', 'hectares')."
+          "description": "The unit of measurement for the field size.",
+          "enum": ["acres", "hectares"]
         },
         "cropType": {
           "type": "string",
-          "description": "The primary crop type cultivated in this field (e.g., 'maize', 'rice', 'tomato')."
+          "description": "The primary crop type cultivated in this field."
         },
         "season": {
           "type": "string",
-          "description": "The current or most recent planting season for this field (e.g., 'Spring 2023', 'Autumn 2024')."
+          "description": "The current or most recent planting season for this field."
         },
-        "managerId": {
+        "locationDescription": {
           "type": "string",
-          "description": "Reference to the UserProfile (Manager role) who is responsible for this field. (Relationship: UserProfile 1:N FarmField)"
+          "description": "A description of the field's location."
         },
         "createdAt": {
           "type": "string",
@@ -175,7 +182,7 @@
       },
       "required": [
         "id",
-        "name",
+        "fieldName",
         "size",
         "sizeUnit",
         "cropType",
@@ -183,180 +190,218 @@
         "createdAt"
       ]
     },
-    "FarmTask": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "FarmTask",
+    "FieldStats": {
+      "title": "FieldStats",
       "type": "object",
-      "description": "Represents a specific task assigned to farm workers within a field.",
+      "description": "Statistics for a specific farm field.",
+      "properties": {
+        "totalOutput": {
+          "type": "number"
+        },
+        "totalLaborHours": {
+          "type": "number"
+        },
+        "productivityIndex": {
+          "type": "number"
+        }
+      }
+    },
+    "Task": {
+      "title": "Task",
+      "type": "object",
+      "description": "Represents a specific task assigned to farm workers within a field. Tracks all operational farm activities.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the FarmTask entity."
+          "description": "Unique identifier for the Task entity."
         },
         "fieldId": {
           "type": "string",
-          "description": "Reference to the FarmField where this task is to be performed. (Relationship: FarmField 1:N FarmTask)"
+          "description": "Reference to the Field where this task is to be performed."
         },
         "cropType": {
           "type": "string",
-          "description": "The specific crop type related to this task, which may refine the field's general crop."
+          "description": "The specific crop type related to this task."
         },
         "taskType": {
           "type": "string",
-          "description": "The type of farm activity (e.g., 'planting', 'weeding', 'harvesting', 'irrigation', 'fertilizer application')."
+          "description": "The type of farm activity.",
+          "enum": [
+            "planting",
+            "harvesting",
+            "weeding",
+            "irrigation",
+            "fertilizing"
+          ]
         },
         "description": {
           "type": "string",
-          "description": "A detailed description of the task, including instructions."
+          "description": "A detailed description of the task."
         },
         "expectedOutput": {
           "type": "number",
-          "description": "The expected quantity or amount of work to be completed for this task."
+          "description": "The expected quantity of work to be completed."
         },
-        "expectedOutputUnit": {
+        "outputUnit": {
           "type": "string",
-          "description": "The unit of measurement for the expected output (e.g., 'kg', 'acres', 'rows', 'units')."
-        },
-        "deadline": {
-          "type": "string",
-          "description": "The target date and time for the task to be completed.",
-          "format": "date-time"
+          "description": "The unit for the expected output.",
+          "enum": ["kg", "tons", "acres"]
         },
         "assignedWorkerIds": {
           "type": "array",
-          "description": "References to FarmWorker entities assigned to this task. (Relationship: FarmWorker N:N FarmTask)",
+          "description": "References to Worker entities assigned to this task.",
           "items": {
             "type": "string"
           }
         },
         "status": {
           "type": "string",
-          "description": "The current status of the task (e.g., 'Pending', 'In Progress', 'Completed')."
+          "description": "The current status of the task.",
+          "enum": ["pending", "in-progress", "completed"]
         },
-        "managerId": {
+        "deadline": {
           "type": "string",
-          "description": "Reference to the UserProfile (Manager role) who created and is managing this task. (Relationship: UserProfile 1:N FarmTask)"
+          "description": "The target date for task completion.",
+          "format": "date-time"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "The ID of the user who created the task."
         },
         "createdAt": {
           "type": "string",
           "description": "Timestamp when the task was created.",
-          "format": "date-time"
-        },
-        "completedAt": {
-          "type": "string",
-          "description": "Timestamp when the task was marked as completed.",
           "format": "date-time"
         }
       },
       "required": [
         "id",
         "fieldId",
-        "cropType",
         "taskType",
-        "description",
-        "expectedOutput",
-        "expectedOutputUnit",
-        "deadline",
+        "assignedWorkerIds",
         "status",
-        "managerId",
+        "deadline",
+        "createdBy",
         "createdAt"
       ]
     },
-    "AttendanceRecord": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "AttendanceRecord",
+    "TaskUpdate": {
+      "title": "TaskUpdate",
       "type": "object",
-      "description": "Records the daily clock-in and clock-out times for a farm worker.",
+      "description": "An update or comment on a task.",
+      "properties": {
+        "updateNote": {
+          "type": "string"
+        },
+        "updatedBy": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "type": "object",
+      "description": "Records the daily clock-in and clock-out for a farm worker. Calculates working hours and supports payroll.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the AttendanceRecord entity."
+          "description": "Unique identifier for the Attendance entity."
         },
         "workerId": {
           "type": "string",
-          "description": "Reference to the FarmWorker whose attendance is being recorded. (Relationship: FarmWorker 1:N AttendanceRecord)"
+          "description": "Reference to the Worker whose attendance is being recorded."
+        },
+        "fieldId": {
+          "type": "string",
+          "description": "Reference to the Field where the worker clocked in."
         },
         "date": {
           "type": "string",
           "description": "The date of the attendance record.",
           "format": "date"
         },
-        "timeIn": {
+        "clockIn": {
           "type": "string",
           "description": "The timestamp when the worker clocked in.",
           "format": "date-time"
         },
-        "timeOut": {
+        "clockOut": {
           "type": "string",
-          "description": "The timestamp when the worker clocked out."
+          "description": "The timestamp when the worker clocked out.",
+          "format": "date-time"
         },
-        "totalHoursWorked": {
+        "totalHours": {
           "type": "number",
           "description": "The calculated total hours worked for the day."
         },
-        "createdAt": {
+        "attendanceStatus": {
           "type": "string",
-          "description": "Timestamp when the attendance record was created.",
-          "format": "date-time"
+          "description": "The status of the attendance for the day.",
+          "enum": ["present", "absent", "late"]
+        },
+        "recordedBy": {
+          "type": "string",
+          "description": "The ID of the user who recorded the attendance."
         }
       },
       "required": [
         "id",
         "workerId",
         "date",
-        "timeIn",
-        "timeOut",
-        "totalHoursWorked",
-        "createdAt"
+        "clockIn",
+        "attendanceStatus",
+        "recordedBy"
       ]
     },
-    "ProductivityEntry": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ProductivityEntry",
+    "Productivity": {
+      "title": "Productivity",
       "type": "object",
-      "description": "Captures a single entry of output or work completed by a worker for a specific task and field.",
+      "description": "Captures the output or work completed by a worker for a specific task. Tracks farm efficiency and performance metrics.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the ProductivityEntry entity."
+          "description": "Unique identifier for the Productivity entity."
         },
         "workerId": {
           "type": "string",
-          "description": "Reference to the FarmWorker who recorded this output. (Relationship: FarmWorker 1:N ProductivityEntry)"
+          "description": "Reference to the Worker who recorded this output."
         },
         "fieldId": {
           "type": "string",
-          "description": "Reference to the FarmField where the output was achieved. (Relationship: FarmField 1:N ProductivityEntry)"
+          "description": "Reference to the Field where the output was achieved."
         },
         "taskId": {
           "type": "string",
-          "description": "Reference to the FarmTask under which this output was achieved. (Relationship: FarmTask 1:N ProductivityEntry)"
+          "description": "Reference to the Task under which this output was achieved."
         },
         "date": {
           "type": "string",
           "description": "The date when the productivity was recorded.",
           "format": "date"
         },
+        "hoursWorked": {
+          "type": "number",
+          "description": "The hours spent to achieve this output."
+        },
         "outputQuantity": {
           "type": "number",
-          "description": "The quantity of output recorded (e.g., kg harvested, acres covered, number of rows planted)."
+          "description": "The quantity of output recorded."
         },
         "outputUnit": {
           "type": "string",
-          "description": "The unit of measurement for the output quantity (e.g., 'kg', 'acres', 'rows', 'units')."
+          "description": "The unit of measurement for the output quantity."
         },
-        "hoursWorkedForEntry": {
+        "outputPerHour": {
           "type": "number",
-          "description": "The estimated or actual hours spent by the worker to achieve this specific output quantity for this entry."
+          "description": "Auto-calculated output per hour."
         },
-        "notes": {
+        "recordedBy": {
           "type": "string",
-          "description": "Additional notes or remarks for this productivity entry."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the productivity entry was created.",
-          "format": "date-time"
+          "description": "The ID of the user who recorded the productivity."
         }
       },
       "required": [
@@ -365,53 +410,53 @@
         "fieldId",
         "taskId",
         "date",
+        "hoursWorked",
         "outputQuantity",
         "outputUnit",
-        "hoursWorkedForEntry",
-        "createdAt"
+        "recordedBy"
       ]
     },
-    "PayrollSummary": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "PayrollSummary",
+    "Payroll": {
+      "title": "Payroll",
       "type": "object",
-      "description": "Contains the calculated payroll summary for a worker for a specific month.",
+      "description": "Contains the calculated payroll for a worker for a specific month. Automates labor cost management.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the PayrollSummary entity."
+          "description": "Unique identifier for the Payroll entity."
         },
         "workerId": {
           "type": "string",
-          "description": "Reference to the FarmWorker for whom this payroll summary is generated. (Relationship: FarmWorker 1:N PayrollSummary)"
+          "description": "Reference to the Worker for whom this payroll is generated."
         },
         "month": {
-          "type": "number",
-          "description": "The month number (1-12) for which the payroll is calculated."
-        },
-        "year": {
-          "type": "number",
-          "description": "The year for which the payroll is calculated."
-        },
-        "totalHoursWorkedMonth": {
-          "type": "number",
-          "description": "The total hours worked by the worker in this month, aggregated from attendance records."
-        },
-        "totalTaskBasedPayment": {
-          "type": "number",
-          "description": "The total payment calculated based on task output for the month, if applicable."
-        },
-        "effectiveWageRate": {
-          "type": "number",
-          "description": "The effective wage rate used for calculations in this payroll period, considering any adjustments."
-        },
-        "effectiveWageRateUnit": {
           "type": "string",
-          "description": "The unit for the effective wage rate (e.g., 'per hour', 'per task')."
+          "description": "The month for which the payroll is calculated (e.g., '2026-02')."
         },
-        "totalPaymentDue": {
+        "totalHours": {
           "type": "number",
-          "description": "The total payment due to the worker for the entire month."
+          "description": "The total hours worked by the worker in this month."
+        },
+        "totalTasksCompleted": {
+          "type": "number",
+          "description": "Total number of tasks completed in the month."
+        },
+        "hourlyPayment": {
+          "type": "number",
+          "description": "Total payment calculated based on hourly wage."
+        },
+        "taskPayment": {
+          "type": "number",
+          "description": "Total payment calculated based on task output."
+        },
+        "totalPayment": {
+          "type": "number",
+          "description": "The total payment due to the worker for the month."
+        },
+        "paymentStatus": {
+          "type": "string",
+          "description": "The status of the payment.",
+          "enum": ["pending", "paid"]
         },
         "generatedAt": {
           "type": "string",
@@ -423,181 +468,181 @@
         "id",
         "workerId",
         "month",
-        "year",
-        "totalHoursWorkedMonth",
-        "totalTaskBasedPayment",
-        "effectiveWageRate",
-        "effectiveWageRateUnit",
-        "totalPaymentDue",
+        "totalPayment",
+        "paymentStatus",
         "generatedAt"
       ]
+    },
+    "PaymentBreakdown": {
+      "title": "PaymentBreakdown",
+      "type": "object",
+      "description": "A breakdown of a single day's payment contributing to a payroll.",
+      "properties": {
+        "date": {
+          "type": "string",
+          "format": "date"
+        },
+        "hoursWorked": {
+          "type": "number"
+        },
+        "dailyPayment": {
+          "type": "number"
+        }
+      }
+    },
+    "Report": {
+      "title": "Report",
+      "type": "object",
+      "description": "Represents a generated report for auditing and analysis.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "reportType": {
+          "type": "string",
+          "enum": [
+            "monthlyProductivity",
+            "payrollSummary",
+            "fieldPerformance"
+          ]
+        },
+        "generatedBy": {
+          "type": "string"
+        },
+        "dateRangeStart": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "dateRangeEnd": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "generatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "fileURL": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": ["id", "reportType", "generatedBy", "generatedAt"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "structure": [
       {
-        "path": "/user_profiles/{userId}",
+        "path": "/users/{userId}",
         "definition": {
-          "entityName": "UserProfile",
           "schema": {
-            "$ref": "#/backend/entities/UserProfile"
+            "$ref": "#/entities/User"
           },
-          "description": "Stores authentication-linked user profiles. The `userId` is the Firebase Authentication UID. Includes the user's `role` (Admin, FarmManager, FarmWorker, Accountant). If the user is a logged-in FarmWorker, their corresponding `FarmWorker` document's ID (`farmWorkerId`) is assumed to be their `userId` for direct authorization.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The Firebase Authentication User ID (UID) of the user."
-            }
-          ]
+          "description": "Stores user account information and roles for access control."
         }
       },
       {
-        "path": "/system_roles_admin/{adminId}",
+        "path": "/workers/{workerId}",
         "definition": {
-          "entityName": "AdminRole",
           "schema": {
-            "$ref": "#/backend/entities/UserProfile"
+            "$ref": "#/entities/Worker"
           },
-          "description": "A collection for Role-Based Access Control. The existence of a document at `/system_roles_admin/$(request.auth.uid)` grants Admin privileges. Documents can be empty or contain a simple 'true' value. This supports 'existence over content' for global roles.",
-          "params": [
-            {
-              "name": "adminId",
-              "description": "The Firebase Authentication User ID (UID) of an Admin."
-            }
-          ]
+          "description": "Contains detailed profiles for all farm workers."
         }
       },
       {
-        "path": "/system_roles_accountant/{accountantId}",
+        "path": "/workers/{workerId}/performanceSummary/{summaryId}",
         "definition": {
-          "entityName": "AccountantRole",
           "schema": {
-            "$ref": "#/backend/entities/UserProfile"
+            "$ref": "#/entities/PerformanceSummary"
           },
-          "description": "A collection for Role-Based Access Control. The existence of a document at `/system_roles_accountant/$(request.auth.uid)` grants Accountant privileges. This supports efficient, existence-based role checks in security rules.",
-          "params": [
-            {
-              "name": "accountantId",
-              "description": "The Firebase Authentication User ID (UID) of an Accountant."
-            }
-          ]
+          "description": "Subcollection for worker performance summaries."
         }
       },
       {
-        "path": "/farm_workers/{farmWorkerId}",
+        "path": "/fields/{fieldId}",
         "definition": {
-          "entityName": "FarmWorker",
           "schema": {
-            "$ref": "#/backend/entities/FarmWorker"
+            "$ref": "#/entities/Field"
           },
-          "description": "Contains detailed profiles for all farm workers, whether they have a login account or not. Includes `managerId` (Firebase UID of the managing Farm Manager) for authorization independence. If the worker has a login, their Firebase `userId` (UID) is stored here, and for strict authorization independence in rules, `farmWorkerId` in the path matches this `userId`.",
-          "params": [
-            {
-              "name": "farmWorkerId",
-              "description": "A unique identifier for the farm worker. For logged-in workers, this ID is their Firebase Authentication User ID (UID)."
-            }
-          ]
+          "description": "Stores information about specific farm fields or plots."
         }
       },
       {
-        "path": "/farm_fields/{fieldId}",
+        "path": "/fields/{fieldId}/fieldStats/{statId}",
         "definition": {
-          "entityName": "FarmField",
           "schema": {
-            "$ref": "#/backend/entities/FarmField"
+            "$ref": "#/entities/FieldStats"
           },
-          "description": "Stores information about specific farm fields. Includes `managerId` (Firebase UID) for the responsible Farm Manager, denormalized for authorization independence.",
-          "params": [
-            {
-              "name": "fieldId",
-              "description": "A unique identifier for the farm field."
-            }
-          ]
+          "description": "Subcollection for field-specific statistics."
         }
       },
       {
-        "path": "/farm_tasks/{taskId}",
+        "path": "/tasks/{taskId}",
         "definition": {
-          "entityName": "FarmTask",
           "schema": {
-            "$ref": "#/backend/entities/FarmTask"
+            "$ref": "#/entities/Task"
           },
-          "description": "Defines farm tasks. Includes `managerId` (Firebase UID) for the creator/manager (denormalized for authorization independence). The document includes `assignedWorkerIds` (array of `FarmWorker.id`s) as per schema, and to support authorization independence for logged-in workers, it will also contain denormalized `assignedWorkerUids` (array of Firebase UIDs) for assigned workers who have login accounts.",
-          "params": [
-            {
-              "name": "taskId",
-              "description": "A unique identifier for the farm task."
-            }
-          ]
+          "description": "Defines and tracks all operational farm activities."
         }
       },
       {
-        "path": "/farm_workers/{farmWorkerId}/attendance_records/{recordId}",
+        "path": "/tasks/{taskId}/taskUpdates/{updateId}",
         "definition": {
-          "entityName": "AttendanceRecord",
           "schema": {
-            "$ref": "#/backend/entities/AttendanceRecord"
+            "$ref": "#/entities/TaskUpdate"
           },
-          "description": "Stores individual attendance clock-in/out records, scoped to a specific farm worker. The `workerId` field in the document must match `farmWorkerId` from the path. For logged-in workers, `farmWorkerId` is their Firebase UID, enabling direct self-access in security rules.",
-          "params": [
-            {
-              "name": "farmWorkerId",
-              "description": "The unique ID of the farm worker to whom this attendance record belongs. For logged-in workers, this is their Firebase Authentication User ID (UID)."
-            },
-            {
-              "name": "recordId",
-              "description": "A unique identifier for the attendance record."
-            }
-          ]
+          "description": "Subcollection for updates and comments on a task."
         }
       },
       {
-        "path": "/farm_workers/{farmWorkerId}/productivity_entries/{entryId}",
+        "path": "/attendance/{attendanceId}",
         "definition": {
-          "entityName": "ProductivityEntry",
           "schema": {
-            "$ref": "#/backend/entities/ProductivityEntry"
+            "$ref": "#/entities/Attendance"
           },
-          "description": "Stores individual productivity entries, scoped to a specific farm worker. The `workerId` field in the document must match `farmWorkerId` from the path. Includes denormalized `fieldId` and `taskId` for context. For logged-in workers, `farmWorkerId` is their Firebase UID, enabling direct self-access in security rules.",
-          "params": [
-            {
-              "name": "farmWorkerId",
-              "description": "The unique ID of the farm worker to whom this productivity entry belongs. For logged-in workers, this is their Firebase Authentication User ID (UID)."
-            },
-            {
-              "name": "entryId",
-              "description": "A unique identifier for the productivity entry."
-            }
-          ]
+          "description": "Top-level collection for all daily attendance records."
         }
       },
       {
-        "path": "/farm_workers/{farmWorkerId}/payroll_summaries/{summaryId}",
+        "path": "/productivity/{productivityId}",
         "definition": {
-          "entityName": "PayrollSummary",
           "schema": {
-            "$ref": "#/backend/entities/PayrollSummary"
+            "$ref": "#/entities/Productivity"
           },
-          "description": "Stores monthly payroll summaries, scoped to a specific farm worker. The `workerId` field in the document must match `farmWorkerId` from the path. For logged-in workers, `farmWorkerId` is their Firebase UID, enabling direct self-access in security rules.",
-          "params": [
-            {
-              "name": "farmWorkerId",
-              "description": "The unique ID of the farm worker to whom this payroll summary belongs. For logged-in workers, this is their Firebase Authentication User ID (UID)."
-            },
-            {
-              "name": "summaryId",
-              "description": "A unique identifier for the payroll summary."
-            }
-          ]
+          "description": "Top-level collection for all productivity entries."
+        }
+      },
+      {
+        "path": "/payroll/{payrollId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/Payroll"
+          },
+          "description": "Top-level collection for all monthly payroll summaries."
+        }
+      },
+      {
+        "path": "/payroll/{payrollId}/paymentBreakdown/{breakdownId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/PaymentBreakdown"
+          },
+          "description": "Subcollection detailing daily payments for a payroll period."
+        }
+      },
+      {
+        "path": "/reports/{reportId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/Report"
+          },
+          "description": "Collection for storing generated reports for auditing and analysis."
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to adhere strictly to the core design principles, especially Authorization Independence and QAPs, by leveraging structural segregation and strategic denormalization. \n\n**Authorization Independence (CRITICAL):**\n1.  **Denormalized Manager IDs:** For `FarmWorker`, `FarmField`, and `FarmTask` entities, the `managerId` (Firebase UID of the managing Farm Manager) is explicitly stored within each document. This eliminates the need for `get()` calls to parent documents or external collections to determine if a manager has permission to access or modify a resource. Security rules can directly check `resource.data.managerId == request.auth.uid`, ensuring atomic and efficient authorization checks.\n2.  **Denormalized Worker UIDs for Tasks:** The `FarmTask` entity will include an additional denormalized field, `assignedWorkerUids` (an array of Firebase UIDs of assigned workers with login accounts). This allows a logged-in worker to query and verify access to their assigned tasks by checking `request.auth.uid in resource.data.assignedWorkerUids` without relying on `get()` calls or complex lookups across collections. \n3.  **Self-Owned Data for Workers:** For worker-specific data (Attendance, Productivity, Payroll) stored as subcollections under `/farm_workers/{farmWorkerId}`, the `farmWorkerId` in the path is assumed to be the Firebase UID (`request.auth.uid`) for logged-in workers. This crucial design choice enables direct path-based authorization for individual workers, allowing security rules to simply verify `farmWorkerId == request.auth.uid`. For workers without a login, `farmWorkerId` will be a system-generated ID, and their data will be managed by their assigned managers or admins. This approach ensures atomic self-access without any `get()` calls for path resolution.\n\n**QAPs (Queries Are Not Filters):**\n1.  **Structural Segregation for Roles:** Dedicated collections like `/system_roles_admin/{adminId}` and `/system_roles_accountant/{accountantId}` provide clear, existence-based authorization for top-level roles. The `role` field in `/user_profiles/{userId}` defines other roles, allowing rules to check `request.auth.role == 'Admin'` or `request.auth.role == 'FarmManager'` after fetching the user's profile (which is implicitly available as `request.auth.token.role`). \n2.  **Manager-Scoped Data:** `FarmWorker`, `FarmField`, and `FarmTask` documents include `managerId`. This allows managers to issue queries like `db.collection('farm_workers').where('managerId', '==', currentUser.uid)` which are directly supported by security rules, ensuring that `list` operations only return authorized data and do not rely on rules to filter results after retrieval.\n3.  **Worker-Scoped Data:** Subcollections like `/farm_workers/{farmWorkerId}/attendance_records` ensure that data pertaining to a specific worker is logically grouped. For logged-in workers, if `farmWorkerId` is their Firebase UID, queries are simple and rules can ensure self-access. Otherwise, the data is accessible by managers (via `managerId` on the parent `farm_workers` document) and admins.\n\nThis structure prioritizes flat collections for commonly accessed entities (workers, fields, tasks) that require manager-level access, and hierarchical subcollections for data strictly owned by or pertaining to a specific worker, ensuring both scalability and fine-grained access control with minimal rule complexity."
+    "reasoning": "The database is designed with a normalized, collection-based approach to ensure scalability and efficient querying. Top-level collections for `users`, `workers`, `fields`, `tasks`, `attendance`, `productivity`, and `payroll` create clear separation of concerns. Document references (`workerId`, `fieldId`, `taskId`) are used to link related data across collections, which is a standard NoSQL practice to avoid deep nesting and enable flexible queries. This structure supports common query patterns (e.g., fetching all tasks for a specific field) and allows for robust role-based access control by checking a user's role in the top-level `users` collection before granting access to other collections."
   }
 }
