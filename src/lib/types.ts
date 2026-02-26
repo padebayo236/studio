@@ -10,16 +10,21 @@ export interface UserProfile {
   lastLoginAt?: string;
 }
 
+export type EmploymentType = 'Permanent' | 'Seasonal' | 'Daily Wage';
+export type WorkerStatus = 'Active' | 'Inactive';
+
 export interface Worker {
+  id?: string;
   workerId: string;
   name: string;
   age: number;
   gender: 'Male' | 'Female' | 'Other';
   phone: string;
+  address: string;
   assignedField: string;
-  employmentType: 'Permanent' | 'Seasonal' | 'Daily Wage';
+  employmentType: EmploymentType;
   wageRate: number; // per hour
-  status: 'Active' | 'Inactive';
+  status: WorkerStatus;
   photoUrl: string;
   photoHint: string;
 }

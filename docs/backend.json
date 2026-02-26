@@ -76,6 +76,14 @@
           "type": "string",
           "description": "The contact phone number of the farm worker."
         },
+        "address": {
+            "type": "string",
+            "description": "The physical address of the farm worker."
+        },
+        "assignedField": {
+            "type": "string",
+            "description": "Reference to the FarmField entity where this worker is currently assigned."
+        },
         "assignedFieldIds": {
           "type": "array",
           "description": "References to FarmField entities where this worker is currently assigned or works. (Relationship: FarmField N:N FarmWorker)",
@@ -121,7 +129,6 @@
         "gender",
         "employmentType",
         "wageRate",
-        "wageRateUnit",
         "status",
         "createdAt"
       ]

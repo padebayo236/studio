@@ -8,17 +8,18 @@ const workerImages = PlaceHolderImages.reduce((acc, img) => {
 }, {} as Record<string, { url: string; hint: string }>);
 
 const workers: Worker[] = [
-  { workerId: 'W001', name: 'John Doe', age: 34, gender: 'Male', phone: '123-456-7890', assignedField: 'North Field', employmentType: 'Permanent', wageRate: 15, status: 'Active', photoUrl: workerImages['worker1']?.url, photoHint: workerImages['worker1']?.hint },
-  { workerId: 'W002', name: 'Jane Smith', age: 28, gender: 'Female', phone: '234-567-8901', assignedField: 'South Field', employmentType: 'Seasonal', wageRate: 14, status: 'Active', photoUrl: workerImages['worker2']?.url, photoHint: workerImages['worker2']?.hint },
-  { workerId: 'W003', name: 'Peter Jones', age: 45, gender: 'Male', phone: '345-678-9012', assignedField: 'East Field', employmentType: 'Permanent', wageRate: 16, status: 'Active', photoUrl: workerImages['worker3']?.url, photoHint: workerImages['worker3']?.hint },
-  { workerId: 'W004', name: 'Mary Williams', age: 22, gender: 'Female', phone: '456-789-0123', assignedField: 'North Field', employmentType: 'Daily Wage', wageRate: 12, status: 'Inactive', photoUrl: workerImages['worker4']?.url, photoHint: workerImages['worker4']?.hint },
-  { workerId: 'W005', name: 'David Brown', age: 39, gender: 'Male', phone: '567-890-1234', assignedField: 'West Field', employmentType: 'Seasonal', wageRate: 14.5, status: 'Active', photoUrl: workerImages['worker5']?.url, photoHint: workerImages['worker5']?.hint },
+  { workerId: 'W001', name: 'John Doe', age: 34, gender: 'Male', phone: '123-456-7890', address: '123 Farm Lane', assignedField: 'North Field', employmentType: 'Permanent', wageRate: 15, status: 'Active', photoUrl: workerImages['worker1']?.url, photoHint: workerImages['worker1']?.hint },
+  { workerId: 'W002', name: 'Jane Smith', age: 28, gender: 'Female', phone: '234-567-8901', address: '456 Farmer Road', assignedField: 'South Field', employmentType: 'Seasonal', wageRate: 14, status: 'Active', photoUrl: workerImages['worker2']?.url, photoHint: workerImages['worker2']?.hint },
+  { workerId: 'W003', name: 'Peter Jones', age: 45, gender: 'Male', phone: '345-678-9012', address: '789 Agriculture Ave', assignedField: 'East Field', employmentType: 'Permanent', wageRate: 16, status: 'Active', photoUrl: workerImages['worker3']?.url, photoHint: workerImages['worker3']?.hint },
+  { workerId: 'W004', name: 'Mary Williams', age: 22, gender: 'Female', phone: '456-789-0123', address: '101 Harvest St', assignedField: 'North Field', employmentType: 'Daily Wage', wageRate: 12, status: 'Inactive', photoUrl: workerImages['worker4']?.url, photoHint: workerImages['worker4']?.hint },
+  { workerId: 'W005', name: 'David Brown', age: 39, gender: 'Male', phone: '567-890-1234', address: '212 Tiller Trail', assignedField: 'West Field', employmentType: 'Seasonal', wageRate: 14.5, status: 'Active', photoUrl: workerImages['worker5']?.url, photoHint: workerImages['worker5']?.hint },
 ];
 
 const fields: Field[] = [
   { fieldId: 'F01', fieldName: 'North Field', size: 10, cropType: 'Maize', season: '2024 Wet Season' },
   { fieldId: 'F02', fieldName: 'South Field', size: 15, cropType: 'Rice', season: '2024 Wet Season' },
   { fieldId: 'F03', fieldName: 'East Field', size: 8, cropType: 'Tomato', season: '2024 Dry Season' },
+  { fieldId: 'F04', fieldName: 'West Field', size: 12, cropType: 'Cassava', season: '2024 Wet Season' },
 ];
 
 const tasks: Task[] = [

@@ -48,6 +48,7 @@ function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <p>There was a problem fetching your user data. This might be a permission issue. Please contact support.</p>
+                        <pre className="mt-4 whitespace-pre-wrap rounded-md bg-muted p-4 text-sm">{error.message}</pre>
                     </CardContent>
                 </Card>
             </div>
