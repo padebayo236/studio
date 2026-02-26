@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, collectionGroup, query } from 'firebase/firestore';
+import { collection, query } from 'firebase/firestore';
 import type { PayrollSummary, Worker } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,12 +41,12 @@ export default function PayrollPage() {
   const payrollQuery = useMemoFirebase(() => {
     if (!firestore || !userProfile) return null;
     if (!['Admin', 'Accountant'].includes(userProfile.role)) return null;
-    return query(collectionGroup(firestore, 'payroll_summaries'));
+    return query(collection(firestore, 'payroll'));
   }, [firestore, userProfile]);
 
   const { data: payrolls, isLoading: isPayrollsLoading, error } = useCollection<PayrollSummary>(payrollQuery);
   
-  const workersRef = useMemoFirebase(() => firestore && collection(firestore, 'farm_workers'), [firestore]);
+  const workersRef = useMemoFirebase(() => firestore && collection(firestore, 'workers'), [firestore]);
   const { data: workersData } = useCollection<Worker>(workersRef);
   const workerMap = React.useMemo(() => new Map(workersData?.map(w => [w.id, w.name])), [workersData]);
 

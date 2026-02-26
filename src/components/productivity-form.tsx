@@ -84,11 +84,11 @@ export function ProductivityForm({ entry, onFormSubmit }: ProductivityFormProps)
     if (!firestore || !userProfile) return null;
 
     if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
-      return collection(firestore, 'farm_workers');
+      return collection(firestore, 'workers');
     }
     if (userProfile.role === 'FarmManager') {
       return query(
-        collection(firestore, 'farm_workers'),
+        collection(firestore, 'workers'),
         where('managerId', '==', userProfile.id)
       );
     }
@@ -103,7 +103,7 @@ export function ProductivityForm({ entry, onFormSubmit }: ProductivityFormProps)
   const tasksQuery = useMemoFirebase(() => {
     if (!firestore || !selectedWorkerId || !userProfile) return null;
     
-    const baseQuery = collection(firestore, 'farm_tasks');
+    const baseQuery = collection(firestore, 'tasks');
     const workerConstraint = where('assignedWorkerIds', 'array-contains', selectedWorkerId);
 
     if (userProfile.role === 'FarmManager') {
@@ -136,11 +136,11 @@ export function ProductivityForm({ entry, onFormSubmit }: ProductivityFormProps)
     };
 
     if (isEditing) {
-        const entryRef = doc(firestore, 'farm_workers', entryData.workerId, 'productivity_entries', entry.id!);
+        const entryRef = doc(firestore, 'productivity', entry.id!);
         updateDocumentNonBlocking(entryRef, entryData);
         toast({ title: "Entry Updated", description: "The productivity entry has been updated." });
     } else {
-        const entriesCollection = collection(firestore, 'farm_workers', entryData.workerId, 'productivity_entries');
+        const entriesCollection = collection(firestore, 'productivity');
         addDocumentNonBlocking(entriesCollection, {
             ...entryData,
             createdAt: new Date().toISOString(),

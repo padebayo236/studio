@@ -73,7 +73,7 @@ export function FieldForm({ field, onFormSubmit }: FieldFormProps) {
       managerId: userProfile.id,
     };
     
-    const fieldsCollection = collection(firestore, 'farm_fields');
+    const fieldsCollection = collection(firestore, 'fields');
 
     if (isEditing) {
         const fieldDoc = doc(fieldsCollection, field.id!);

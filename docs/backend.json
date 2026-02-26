@@ -398,31 +398,29 @@
         "schema": { "$ref": "#/entities/User" },
         "description": "Stores user account information and roles for access control."
       },
-      "/farm_workers/{workerId}": {
+      "/workers/{workerId}": {
         "schema": { "$ref": "#/entities/Worker" },
         "description": "Contains detailed profiles for all farm workers."
       },
-      "/farm_workers/{workerId}/attendance_records/{attendanceId}": {
+      "/attendance/{attendanceId}": {
         "schema": { "$ref": "#/entities/Attendance" },
-        "description": "Subcollection for a worker's daily attendance records."
+        "description": "Records the daily clock-in and clock-out for a farm worker."
       },
-      "/farm_workers/{workerId}/productivity_entries/{entryId}": {
+      "/productivity/{productivityId}": {
         "schema": { "$ref": "#/entities/Productivity" },
-        "description": "Subcollection for a worker's productivity entries."
+        "description": "Captures the output or work completed by a worker for a specific task."
       },
-      "/farm_workers/{workerId}/payroll_summaries/{summaryId}": {
+      "/payroll/{payrollId}": {
         "schema": { "$ref": "#/entities/Payroll" },
-        "description": "Subcollection for a worker's monthly payroll summaries."
+        "description": "Contains the calculated payroll for a worker for a specific month."
       },
-      "/farm_fields/{fieldId}": {
+      "/fields/{fieldId}": {
         "schema": { "$ref": "#/entities/Field" },
         "description": "Stores information about specific farm fields or plots."
       },
-      "/farm_tasks/{taskId}": {
+      "/tasks/{taskId}": {
         "schema": { "$ref": "#/entities/Task" },
         "description": "Defines and tracks all operational farm activities."
       }
-    }
+  }
 }
-
-    

@@ -71,10 +71,10 @@ export default function WorkersPage() {
   const workersQuery = useMemoFirebase(() => {
     if (!firestore || !userProfile) return null;
     if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
-        return collection(firestore, 'farm_workers');
+        return collection(firestore, 'workers');
     }
     if (userProfile.role === 'FarmManager') {
-        return query(collection(firestore, 'farm_workers'), where('managerId', '==', userProfile.id));
+        return query(collection(firestore, 'workers'), where('managerId', '==', userProfile.id));
     }
     return null;
   }, [firestore, userProfile]);
@@ -93,7 +93,7 @@ export default function WorkersPage() {
 
   const handleDeactivate = (workerId: string) => {
     if (!firestore) return;
-    const workerDocRef = doc(firestore, 'farm_workers', workerId);
+    const workerDocRef = doc(firestore, 'workers', workerId);
     updateDocumentNonBlocking(workerDocRef, { status: 'Inactive' });
   };
   
@@ -121,7 +121,7 @@ export default function WorkersPage() {
     );
   }
 
-  if (!userProfile || !['Admin', 'FarmManager'].includes(userProfile.role)) {
+  if (!userProfile || !['Admin', 'FarmManager', 'Accountant'].includes(userProfile.role)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Card className="w-1/2">

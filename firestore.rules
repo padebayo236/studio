@@ -1,102 +1,42 @@
 
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper Functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    function getRequestingUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    function isAdmin() {
-      return isSignedIn() && getRequestingUserData().role == 'Admin';
-    }
-
-    function isManager() {
-      return isSignedIn() && getRequestingUserData().role == 'FarmManager';
-    }
-
-    function isAccountant() {
-      return isSignedIn() && getRequestingUserData().role == 'Accountant';
-    }
-
-    function isWorker() {
-        return isSignedIn() && getRequestingUserData().role == 'FarmWorker';
-    }
-    
-    function isManagerForWorker(workerId) {
-        return isManager() && get(/databases/$(database)/documents/farm_workers/$(workerId)).data.managerId == request.auth.uid;
-    }
-
-    // Collection Rules
-
-    // Users: Can read/update their own profile. Admins have full access.
+    // Users collection
     match /users/{userId} {
-      allow read, update: if isOwner(userId) || isAdmin();
-      allow create: if isSignedIn(); // Allow any signed-in user to create their profile
-      allow list, delete: if isAdmin();
+      allow read, write: if request.auth != null;
     }
 
-    // Farm Workers: Admins/Managers can manage. Workers can view profiles.
-    match /farm_workers/{workerId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin() || isManager();
-      allow list: if isAdmin() || isAccountant();
-
-      // Managers can list workers they manage
-      allow list: if isManager() && request.query.where.size() == 1 && request.query.where[0][0] == 'managerId' && request.query.where[0][2] == request.auth.uid;
-      
-      // Attendance: Workers manage their own. Managers manage their team's. Admins/Accountants can read all.
-      match /attendance_records/{attendanceId} {
-        allow read: if isAdmin() || isAccountant() || isOwner(workerId) || isManagerForWorker(workerId);
-        allow create, update, delete: if isOwner(workerId) || isManagerForWorker(workerId) || isAdmin();
-        allow list: if isAdmin() || isAccountant() || isManagerForWorker(workerId);
-      }
-      
-      // Productivity: Workers manage their own. Managers manage their team's. Admins/Accountants can read all.
-      match /productivity_entries/{entryId} {
-         allow read: if isAdmin() || isAccountant() || isOwner(workerId) || isManagerForWorker(workerId);
-         allow create, update, delete: if isOwner(workerId) || isManagerForWorker(workerId) || isAdmin();
-         allow list: if isAdmin() || isAccountant() || isManagerForWorker(workerId);
-      }
-      
-      // Payroll: Sensitive. Admins/Accountants manage. Workers can read their own.
-      match /payroll_summaries/{summaryId} {
-        allow read: if isAdmin() || isAccountant() || isOwner(workerId);
-        allow write: if isAdmin() || isAccountant();
-        allow list: if isAdmin() || isAccountant();
-      }
+    // Workers
+    match /workers/{workerId} {
+      allow read, write: if request.auth != null;
     }
 
-    // Farm Fields: Admins and Managers can manage.
-    match /farm_fields/{fieldId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin() || isManager();
-      // Admins can list all fields
-      allow list: if isAdmin();
-      // Managers can list fields they manage
-      allow list: if isManager() && request.query.where.size() == 1 && request.query.where[0][0] == 'managerId' && request.query.where[0][2] == request.auth.uid;
+    // Attendance
+    match /attendance/{attendanceId} {
+      allow read, write: if request.auth != null;
     }
 
-    // Farm Tasks: Admins and Managers can manage. Workers can read assigned tasks.
-    match /farm_tasks/{taskId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin() || isManager();
-      // Admins can list all tasks
-      allow list: if isAdmin();
-      // Managers can list tasks they manage
-      allow list: if isManager() && request.query.where.size() == 1 && request.query.where[0][0] == 'managerId' && request.query.where[0][2] == request.auth.uid;
+    // Tasks
+    match /tasks/{taskId} {
+      allow read, write: if request.auth != null;
     }
+
+    // Productivity
+    match /productivity/{productivityId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Fields
+    match /fields/{fieldId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Payroll
+    match /payroll/{payrollId} {
+      allow read, write: if request.auth != null;
+    }
+
   }
 }
-
-    

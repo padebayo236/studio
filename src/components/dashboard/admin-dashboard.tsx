@@ -13,7 +13,7 @@ import {
   Wheat,
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, collectionGroup, query, where } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import {
   format,
   startOfMonth,
@@ -79,13 +79,13 @@ export function AdminDashboard() {
 
   // --- DATA FETCHING ---
   const workersRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'farm_workers') : null),
+    () => (firestore ? collection(firestore, 'workers') : null),
     [firestore]
   );
   const { data: workersData } = useCollection<Worker>(workersRef);
 
   const fieldsRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'farm_fields') : null),
+    () => (firestore ? collection(firestore, 'fields') : null),
     [firestore]
   );
   const { data: fieldsData } = useCollection<FarmField>(fieldsRef);
@@ -95,13 +95,13 @@ export function AdminDashboard() {
   );
 
   const tasksRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'farm_tasks') : null),
+    () => (firestore ? collection(firestore, 'tasks') : null),
     [firestore]
   );
   const { data: tasksData } = useCollection<FarmTask>(tasksRef);
 
   const productivityRef = useMemoFirebase(
-    () => (firestore ? collectionGroup(firestore, 'productivity_entries') : null),
+    () => (firestore ? collection(firestore, 'productivity') : null),
     [firestore]
   );
   const { data: productivityData } = useCollection<ProductivityEntry>(
@@ -112,14 +112,14 @@ export function AdminDashboard() {
     if (!firestore) return null;
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     return query(
-      collectionGroup(firestore, 'attendance_records'),
+      collection(firestore, 'attendance'),
       where('date', '==', todayStr)
     );
   }, [firestore]);
   const { data: presentWorkersData } = useCollection(presentWorkersQuery);
 
   const payrollQuery = useMemoFirebase(
-    () => (firestore ? collectionGroup(firestore, 'payroll_summaries') : null),
+    () => (firestore ? collection(firestore, 'payroll') : null),
     [firestore]
   );
   const { data: payrollsData } = useCollection<PayrollSummary>(payrollQuery);
@@ -392,5 +392,3 @@ export function AdminDashboard() {
     </div>
   );
 }
-
-    

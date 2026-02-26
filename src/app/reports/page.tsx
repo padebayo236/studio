@@ -1,9 +1,10 @@
+
 'use client';
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useFirestore } from '@/firebase';
-import { collection, query, where, getDocs, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import type { ProductivityEntry, Worker, FarmField, FarmTask } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -102,7 +103,7 @@ export default function ReportsPage() {
         setIsGeneratingInsights(true);
 
         try {
-            const productivityQuery = query(collectionGroup(firestore, 'productivity_entries'));
+            const productivityQuery = query(collection(firestore, 'productivity'));
             const querySnapshot = await getDocs(productivityQuery);
             const entries = querySnapshot.docs.map(doc => doc.data());
             

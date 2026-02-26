@@ -1,3 +1,4 @@
+
 export type UserRole = 'Admin' | 'FarmManager' | 'FarmWorker' | 'Accountant';
 
 export interface UserProfile {
@@ -16,7 +17,7 @@ export type WorkerStatus = 'Active' | 'Inactive';
 
 export interface Worker {
   id: string;
-  workerId: string;
+  userId?: string; // Link to auth user if they can log in
   name: string;
   age: number;
   gender: 'Male' | 'Female' | 'Other';
@@ -91,14 +92,12 @@ export interface ProductivityEntry {
 }
 
 export interface PayrollSummary {
-  id: string;
+  id:string;
   workerId: string;
   month: number;
   year: number;
   totalHoursWorkedMonth: number;
   totalTaskBasedPayment: number;
-  effectiveWageRate: number;
-  effectiveWageRateUnit: string;
   totalPaymentDue: number;
   generatedAt: string; // ISO DateTime string
 }

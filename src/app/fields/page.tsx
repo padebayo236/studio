@@ -42,12 +42,12 @@ export default function FieldsPage() {
     if (!firestore || !userProfile) return null;
 
     if (userProfile.role === 'Admin') {
-      return collection(firestore, 'farm_fields');
+      return collection(firestore, 'fields');
     }
 
     if (userProfile.role === 'FarmManager') {
       return query(
-        collection(firestore, 'farm_fields'),
+        collection(firestore, 'fields'),
         where('managerId', '==', userProfile.id)
       );
     }
@@ -94,7 +94,7 @@ export default function FieldsPage() {
 
   const handleDelete = (fieldId: string) => {
     if (!firestore) return;
-    const fieldDocRef = doc(firestore, 'farm_fields', fieldId);
+    const fieldDocRef = doc(firestore, 'fields', fieldId);
     deleteDocumentNonBlocking(fieldDocRef);
     toast({ title: 'Field Deleted', description: 'The field has been removed.' });
   };

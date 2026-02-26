@@ -33,7 +33,8 @@ export function FarmWorkerDashboard() {
     if (!firestore || !user) return null;
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     return query(
-      collection(firestore, 'farm_workers', user.uid, 'attendance_records'),
+      collection(firestore, 'attendance'),
+      where('workerId', '==', user.uid),
       where('date', '==', todayStr),
       limit(1)
     );
@@ -46,7 +47,8 @@ export function FarmWorkerDashboard() {
     const currentMonth = new Date().getMonth() + 1;
     const currentYear = new Date().getFullYear();
     return query(
-      collection(firestore, 'farm_workers', user.uid, 'payroll_summaries'),
+      collection(firestore, 'payroll'),
+      where('workerId', '==', user.uid),
       where('month', '==', currentMonth),
       where('year', '==', currentYear),
       limit(1)
@@ -73,7 +75,7 @@ export function FarmWorkerDashboard() {
       createdAt: new Date().toISOString(),
     };
     
-    addDocumentNonBlocking(collection(firestore, 'farm_workers', user.uid, 'attendance_records'), newRecord);
+    addDocumentNonBlocking(collection(firestore, 'attendance'), newRecord);
     toast({ title: "Clocked In", description: "Your shift has started." });
     setIsClocking(false);
   };
@@ -81,7 +83,7 @@ export function FarmWorkerDashboard() {
   const handleClockOut = async () => {
     if (!firestore || !user || !todaysRecord) return;
     setIsClocking(true);
-    const recordRef = doc(firestore, 'farm_workers', user.uid, 'attendance_records', todaysRecord.id);
+    const recordRef = doc(firestore, 'attendance', todaysRecord.id);
     const timeIn = new Date(todaysRecord.timeIn);
     const timeOut = new Date();
     // Calculate hours with decimals

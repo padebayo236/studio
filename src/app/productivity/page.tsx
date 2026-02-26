@@ -1,9 +1,10 @@
+
 'use client';
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, getDocs, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, doc, getDocs } from 'firebase/firestore';
 import type { ProductivityEntry, Worker, FarmField, FarmTask } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -77,9 +78,9 @@ export default function ProductivityPage() {
       try {
         let productivityQuery;
         if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
-          productivityQuery = query(collectionGroup(firestore, 'productivity_entries'));
+          productivityQuery = query(collection(firestore, 'productivity'));
         } else if (userProfile.role === 'FarmManager') {
-           const managedWorkersQuery = query(collection(firestore, 'farm_workers'), where('managerId', '==', userProfile.id));
+           const managedWorkersQuery = query(collection(firestore, 'workers'), where('managerId', '==', userProfile.id));
            const managedWorkersSnapshot = await getDocs(managedWorkersQuery);
            const workerIds = managedWorkersSnapshot.docs.map(doc => doc.id);
            
@@ -90,7 +91,7 @@ export default function ProductivityPage() {
            }
 
            // Firestore 'in' queries are limited to 30 items.
-           productivityQuery = query(collectionGroup(firestore, 'productivity_entries'), where('workerId', 'in', workerIds.slice(0, 30)));
+           productivityQuery = query(collection(firestore, 'productivity'), where('workerId', 'in', workerIds.slice(0, 30)));
         } else {
             setIsEntriesLoading(false);
             return;
@@ -114,11 +115,11 @@ export default function ProductivityPage() {
   }, [isAuthLoading, userProfile, firestore]);
 
   // Fetch related data to enrich the table
-  const workersRef = useMemoFirebase(() => firestore && collection(firestore, 'farm_workers'), [firestore]);
+  const workersRef = useMemoFirebase(() => firestore && collection(firestore, 'workers'), [firestore]);
   const { data: workersData } = useCollection<Worker>(workersRef);
-  const fieldsRef = useMemoFirebase(() => firestore && collection(firestore, 'farm_fields'), [firestore]);
+  const fieldsRef = useMemoFirebase(() => firestore && collection(firestore, 'fields'), [firestore]);
   const { data: fieldsData } = useCollection<FarmField>(fieldsRef);
-  const tasksRef = useMemoFirebase(() => firestore && collection(firestore, 'farm_tasks'), [firestore]);
+  const tasksRef = useMemoFirebase(() => firestore && collection(firestore, 'tasks'), [firestore]);
   const { data: tasksData } = useCollection<FarmTask>(tasksRef);
 
   const workerMap = React.useMemo(() => new Map(workersData?.map(w => [w.id, w.name])), [workersData]);

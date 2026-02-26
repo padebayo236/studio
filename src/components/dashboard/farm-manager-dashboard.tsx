@@ -1,3 +1,4 @@
+
 'use client';
 import * as React from 'react';
 import { StatCard } from '@/components/dashboard/stat-card';
@@ -14,7 +15,6 @@ import {
   query,
   where,
   getDocs,
-  collectionGroup,
 } from 'firebase/firestore';
 import { format } from 'date-fns';
 import type { FarmTask, Worker } from '@/lib/types';
@@ -44,7 +44,7 @@ export function FarmManagerDashboard() {
 
         // 1. Get workers managed by this manager
         const workersQuery = query(
-          collection(firestore, 'farm_workers'),
+          collection(firestore, 'workers'),
           where('managerId', '==', userProfile.id)
         );
         const workersSnapshot = await getDocs(workersQuery);
@@ -65,7 +65,7 @@ export function FarmManagerDashboard() {
           let presentCount = 0;
           for (const chunk of chunks) {
             const attendanceQuery = query(
-              collectionGroup(firestore, 'attendance_records'),
+              collection(firestore, 'attendance'),
               where('workerId', 'in', chunk),
               where('date', '==', todayStr)
             );
@@ -77,7 +77,7 @@ export function FarmManagerDashboard() {
 
         // 2. Get tasks managed by this manager
         const tasksQuery = query(
-          collection(firestore, 'farm_tasks'),
+          collection(firestore, 'tasks'),
           where('managerId', '==', userProfile.id)
         );
         const tasksSnapshot = await getDocs(tasksQuery);

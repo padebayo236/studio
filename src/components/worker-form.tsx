@@ -95,12 +95,12 @@ export function WorkerForm({ worker, onFormSubmit }: WorkerFormProps) {
     if (!firestore || !userProfile) return null;
 
     if (userProfile.role === 'Admin') {
-      return collection(firestore, 'farm_fields');
+      return collection(firestore, 'fields');
     }
 
     if (userProfile.role === 'FarmManager') {
       return query(
-        collection(firestore, 'farm_fields'),
+        collection(firestore, 'fields'),
         where('managerId', '==', userProfile.id)
       );
     }
@@ -120,7 +120,7 @@ export function WorkerForm({ worker, onFormSubmit }: WorkerFormProps) {
     }
     setIsLoading(true);
 
-    const workersCollection = collection(firestore, 'farm_workers');
+    const workersCollection = collection(firestore, 'workers');
     const managerId = userProfile.id;
 
     try {

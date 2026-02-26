@@ -55,11 +55,11 @@ export default function TasksPage() {
   const tasksQuery = useMemoFirebase(() => {
     if (!firestore || !userProfile) return null;
     if (userProfile.role === 'Admin') {
-      return collection(firestore, 'farm_tasks');
+      return collection(firestore, 'tasks');
     }
     if (userProfile.role === 'FarmManager') {
       return query(
-        collection(firestore, 'farm_tasks'),
+        collection(firestore, 'tasks'),
         where('managerId', '==', userProfile.id)
       );
     }
@@ -73,13 +73,13 @@ export default function TasksPage() {
   } = useCollection<Omit<FarmTask, 'id'>>(tasksQuery);
 
   const workersRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'farm_workers') : null),
+    () => (firestore ? collection(firestore, 'workers') : null),
     [firestore]
   );
   const { data: workersData } = useCollection<Omit<Worker, 'id'>>(workersRef);
 
   const fieldsRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'farm_fields') : null),
+    () => (firestore ? collection(firestore, 'fields') : null),
     [firestore]
   );
   const { data: fieldsData } = useCollection<Omit<FarmField, 'id'>>(fieldsRef);
@@ -234,4 +234,3 @@ export default function TasksPage() {
     </Card>
   );
 }
-

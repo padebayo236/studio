@@ -87,10 +87,10 @@ export function TaskForm({ task, onFormSubmit }: TaskFormProps) {
   const fieldsQuery = useMemoFirebase(() => {
     if (!firestore || !userProfile) return null;
     if (userProfile.role === 'Admin') {
-        return collection(firestore, 'farm_fields');
+        return collection(firestore, 'fields');
     }
     if (userProfile.role === 'FarmManager') {
-        return query(collection(firestore, 'farm_fields'), where('managerId', '==', userProfile.id));
+        return query(collection(firestore, 'fields'), where('managerId', '==', userProfile.id));
     }
     return null;
   }, [firestore, userProfile]);
@@ -101,11 +101,11 @@ export function TaskForm({ task, onFormSubmit }: TaskFormProps) {
 
     // This form is only used by Admins and FarmManagers
     if (userProfile.role === 'Admin') {
-      return collection(firestore, 'farm_workers');
+      return collection(firestore, 'workers');
     }
     if (userProfile.role === 'FarmManager') {
       return query(
-        collection(firestore, 'farm_workers'),
+        collection(firestore, 'workers'),
         where('managerId', '==', userProfile.id)
       );
     }
@@ -151,11 +151,11 @@ export function TaskForm({ task, onFormSubmit }: TaskFormProps) {
     };
 
     if (isEditing) {
-        const taskRef = doc(firestore, 'farm_tasks', task.id!);
+        const taskRef = doc(firestore, 'tasks', task.id!);
         updateDocumentNonBlocking(taskRef, taskData);
         toast({ title: "Task Updated", description: "The task has been successfully updated." });
     } else {
-        const tasksCollection = collection(firestore, 'farm_tasks');
+        const tasksCollection = collection(firestore, 'tasks');
         addDocumentNonBlocking(tasksCollection, {
             ...taskData,
             createdAt: new Date().toISOString(),

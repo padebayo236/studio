@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, collectionGroup, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import type { AttendanceRecord, Worker } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -35,7 +35,7 @@ export default function AttendancePage() {
   const [error, setError] = React.useState<Error | null>(null);
 
   const workersRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'farm_workers') : null),
+    () => (firestore ? collection(firestore, 'workers') : null),
     [firestore]
   );
   const { data: workersData } = useCollection<Omit<Worker, 'id'>>(workersRef);
@@ -62,9 +62,9 @@ export default function AttendancePage() {
       try {
         let attendanceQuery;
         if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
-          attendanceQuery = query(collectionGroup(firestore, 'attendance_records'));
+          attendanceQuery = query(collection(firestore, 'attendance'));
         } else if (userProfile.role === 'FarmManager') {
-           const managedWorkersQuery = query(collection(firestore, 'farm_workers'), where('managerId', '==', userProfile.id));
+           const managedWorkersQuery = query(collection(firestore, 'workers'), where('managerId', '==', userProfile.id));
            const managedWorkersSnapshot = await getDocs(managedWorkersQuery);
            const workerIds = managedWorkersSnapshot.docs.map(doc => doc.id);
            
@@ -76,7 +76,7 @@ export default function AttendancePage() {
 
            // Firestore 'in' queries are limited to 30 items.
            // For managers with more workers, a more scalable solution would be needed.
-           attendanceQuery = query(collectionGroup(firestore, 'attendance_records'), where('workerId', 'in', workerIds.slice(0, 30)));
+           attendanceQuery = query(collection(firestore, 'attendance'), where('workerId', 'in', workerIds.slice(0, 30)));
         } else {
             // Workers should not access this page.
             setIsLoading(false);
@@ -165,7 +165,7 @@ export default function AttendancePage() {
                 <TableRow key={record.id}>
                   <TableCell className="font-medium">{workerNameMap.get(record.workerId) || record.workerId}</TableCell>
                   <TableCell>{record.date}</TableCell>
-                  <TableCell>{format(new Date(record.timeIn), 'p')}</TableCell>
+                  <TableCell>{record.timeIn ? format(new Date(record.timeIn), 'p') : '- N/A -'}</TableCell>
                   <TableCell>{record.timeOut ? format(new Date(record.timeOut), 'p') : '- N/A -'}</TableCell>
                   <TableCell className="text-right">{record.totalHoursWorked?.toFixed(2) || '-'}</TableCell>
                 </TableRow>
