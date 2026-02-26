@@ -68,6 +68,7 @@ export function SignUpForm() {
             displayName: data.name
         });
 
+        // Create main user profile
         const userProfileRef = doc(firestore, 'user_profiles', userId);
         const profileData = {
             id: userId,
@@ -86,6 +87,15 @@ export function SignUpForm() {
             });
             errorEmitter.emit('permission-error', permissionError);
           });
+        
+        // Add to role-specific collection for RBAC
+        if (data.role === 'Admin') {
+            const adminRoleRef = doc(firestore, 'system_roles_admin', userId);
+            setDoc(adminRoleRef, { isAdmin: true }).catch(err => console.error("Failed to set admin role"));
+        } else if (data.role === 'Accountant') {
+            const accountantRoleRef = doc(firestore, 'system_roles_accountant', userId);
+            setDoc(accountantRoleRef, { isAccountant: true }).catch(err => console.error("Failed to set accountant role"));
+        }
         
       } else {
         throw new Error("User creation failed.");
@@ -184,6 +194,7 @@ export function SignUpForm() {
                       <SelectItem value="Admin">Admin (Farm Owner)</SelectItem>
                       <SelectItem value="FarmManager">Farm Manager</SelectItem>
                       <SelectItem value="FarmWorker">Farm Worker</SelectItem>
+                      <SelectItem value="Accountant">Accountant</SelectItem>
                   </SelectContent>
               </Select>
               <FormMessage />

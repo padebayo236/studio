@@ -6,7 +6,7 @@ rules_version = '2';
  * @description
  * This ruleset implements a Role-Based Access Control (RBAC) model designed for
  * the AgriPro Manager application. It ensures that data access is strictly controlled
- * based on user roles (Admin, FarmManager, FarmWorker) and resource ownership.
+ * based on user roles (Admin, FarmManager, FarmWorker, Accountant) and resource ownership.
  *
  * @philosophy
  * The core philosophy is Authorization Independence. Rules are designed to be
@@ -21,9 +21,9 @@ rules_version = '2';
  * This structural segregation provides clear, path-based access control.
  *
  * @decisions
- * - **Admin Access:** A user is granted global Admin privileges if a document
- *   with their UID exists in the `/system_roles_admin` collection. This is a
- *   highly efficient, existence-based check.
+ * - **Admin/Accountant Access:** A user is granted global Admin or Accountant privileges if a document
+ *   with their UID exists in the `/system_roles_admin` or `/system_roles_accountant` collection, respectively.
+ *   This is a highly efficient, existence-based check.
  * - **Manager Access:** A Farm Manager's access to workers, fields, and tasks is
  *   determined by a `managerId` field on those documents. They can only access
  *   resources explicitly assigned to them.
@@ -33,7 +33,7 @@ rules_version = '2';
  * - **No User Enumeration:** Listing users from the `/user_profiles` collection
  *   is explicitly disallowed to protect user privacy.
  * - **Query Security:** To enforce the "Queries Are Not Filters" principle, `list`
- *   operations on top-level collections are restricted to Admins. This prevents
+ *   operations on top-level collections are restricted to Admins or Accountants. This prevents
  *   lower-privileged users from downloading entire datasets.
  * - **Prototyping Flexibility:** These rules strictly control *who* can access
  *   data but do not validate the specific shape or type of data being written,
@@ -59,6 +59,13 @@ service cloud.firestore {
      */
     function isAdmin() {
       return exists(/databases/$(database)/documents/system_roles_admin/$(request.auth.uid));
+    }
+
+    /**
+     * Checks if the current user has Accountant privileges.
+     */
+    function isAccountant() {
+      return exists(/databases/$(database)/documents/system_roles_accountant/$(request.auth.uid));
     }
 
     /**
@@ -132,61 +139,71 @@ service cloud.firestore {
       allow get, list: if isAdmin();
       allow create, update, delete: if isAdmin();
     }
+    
+    /**
+     * @description Manages the Accountant role. Only Admins can assign or view this role.
+     * @path /system_roles_accountant/{accountantId}
+     * @principle Enforces strict control over financial roles.
+     */
+    match /system_roles_accountant/{accountantId} {
+      allow get, list, create, update, delete: if isAdmin();
+    }
+
 
     /**
-     * @description Manages farm worker profiles. Admins have full access. Managers can access workers they manage. Workers can read their own profile.
+     * @description Manages farm worker profiles. Admins and Accountants have full access. Managers can access workers they manage. Workers can read their own profile.
      * @path /farm_workers/{farmWorkerId}
      * @allow (get) A logged-in worker reading their own profile (`farmWorkerId` == auth.uid).
      * @allow (get) A manager reading a worker profile where `resource.data.managerId` matches the manager's UID.
-     * @deny (list) A Farm Manager attempting to list all workers in the system. Listing is an admin-only privilege.
+     * @deny (list) A Farm Manager attempting to list all workers in the system. Listing is an admin/accountant-only privilege.
      * @principle Enforces scoped access for managers and self-access for individuals.
      */
     match /farm_workers/{farmWorkerId} {
-      allow get: if isAdmin() || isManagerOfResource() || isOwner(farmWorkerId);
-      allow list: if isAdmin();
+      allow get: if isAdmin() || isAccountant() || isManagerOfResource() || isOwner(farmWorkerId);
+      allow list: if isAdmin() || isAccountant();
       allow create: if isAdmin() || (isSignedIn() && request.resource.data.managerId == request.auth.uid);
       allow update: if isAdmin() || (resource != null && isManagerOfResource());
       allow delete: if isAdmin() || (resource != null && isManagerOfResource());
 
       /**
-       * @description Worker's private attendance records. Accessible only by the worker, their manager, or an Admin.
+       * @description Worker's private attendance records. Accessible by the worker, their manager, an Admin, or an Accountant.
        * @path /farm_workers/{farmWorkerId}/attendance_records/{recordId}
        * @allow (create) A logged-in worker creating their own attendance record.
        * @deny (update) A worker trying to modify another worker's attendance.
        * @principle Enforces document ownership within a user's data tree.
        */
       match /attendance_records/{recordId} {
-        allow get, list: if isAdmin() || isManagerOfWorker(farmWorkerId) || isOwner(farmWorkerId);
+        allow get, list: if isAdmin() || isAccountant() || isManagerOfWorker(farmWorkerId) || isOwner(farmWorkerId);
         allow create: if (isAdmin() || isOwner(farmWorkerId)) && request.resource.data.workerId == farmWorkerId;
         allow update: if (resource != null && (isAdmin() || isOwner(farmWorkerId))) && request.resource.data.workerId == resource.data.workerId;
         allow delete: if resource != null && (isAdmin() || isOwner(farmWorkerId));
       }
 
       /**
-       * @description Worker's private productivity entries. Accessible only by the worker, their manager, or an Admin.
+       * @description Worker's private productivity entries. Accessible by the worker, their manager, an Admin, or an Accountant.
        * @path /farm_workers/{farmWorkerId}/productivity_entries/{entryId}
        * @allow (create) A logged-in worker creating their own productivity entry.
        * @deny (update) A manager trying to modify a worker's entry if they are not the assigned manager.
        * @principle Validates relational integrity between a subcollection document and its parent.
        */
       match /productivity_entries/{entryId} {
-        allow get, list: if isAdmin() || isManagerOfWorker(farmWorkerId) || isOwner(farmWorkerId);
+        allow get, list: if isAdmin() || isAccountant() || isManagerOfWorker(farmWorkerId) || isOwner(farmWorkerId);
         allow create: if (isAdmin() || isOwner(farmWorkerId)) && request.resource.data.workerId == farmWorkerId;
         allow update: if (resource != null && (isAdmin() || isOwner(farmWorkerId))) && request.resource.data.workerId == resource.data.workerId;
         allow delete: if resource != null && (isAdmin() || isOwner(farmWorkerId));
       }
 
       /**
-       * @description Worker's read-only payroll summaries. Writable only by Admins (representing a backend process).
+       * @description Worker's read-only payroll summaries. Writable only by Admins or Accountants.
        * @path /farm_workers/{farmWorkerId}/payroll_summaries/{summaryId}
-       * @allow (get, list) A worker or their manager viewing payroll summaries.
-       * @deny (create, update, delete) Any non-Admin attempting to create or modify a payroll record.
+       * @allow (get, list) A worker, their manager, Admin, or Accountant viewing payroll summaries.
+       * @deny (create, update, delete) Any non-Admin/Accountant attempting to create or modify a payroll record.
        * @principle Protects sensitive, calculated data by making it read-only for most users.
        */
       match /payroll_summaries/{summaryId} {
-        allow get, list: if isAdmin() || isManagerOfWorker(farmWorkerId) || isOwner(farmWorkerId);
-        allow create: if isAdmin() && request.resource.data.workerId == farmWorkerId;
-        allow update, delete: if isAdmin() && resource != null;
+        allow get, list: if isAdmin() || isAccountant() || isManagerOfWorker(farmWorkerId) || isOwner(farmWorkerId);
+        allow create: if (isAdmin() || isAccountant()) && request.resource.data.workerId == farmWorkerId;
+        allow update, delete: if (isAdmin() || isAccountant()) && resource != null;
       }
     }
 

@@ -14,6 +14,7 @@ import { AgriProLogo } from "@/components/icons";
 import { AdminDashboard } from '@/components/dashboard/admin-dashboard';
 import { FarmManagerDashboard } from '@/components/dashboard/farm-manager-dashboard';
 import { FarmWorkerDashboard } from '@/components/dashboard/farm-worker-dashboard';
+import { AccountantDashboard } from '@/components/dashboard/accountant-dashboard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 function DashboardPage() {
@@ -69,6 +70,8 @@ function DashboardPage() {
         return <FarmManagerDashboard />;
       case 'FarmWorker':
         return <FarmWorkerDashboard />;
+      case 'Accountant':
+        return <AccountantDashboard />;
       default:
         return (
             <Card>

@@ -4,7 +4,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "UserProfile",
       "type": "object",
-      "description": "Represents a user account within the AgriPro Manager system, including administrative roles, farm managers, and farm workers who log in.",
+      "description": "Represents a user account within the AgriPro Manager system, including administrative roles, farm managers, farm workers, and accountants who log in.",
       "properties": {
         "id": {
           "type": "string",
@@ -25,7 +25,7 @@
         },
         "role": {
           "type": "string",
-          "description": "The role of the user within the system, determining access permissions. (e.g., Admin, FarmManager, FarmWorker)."
+          "description": "The role of the user within the system, determining access permissions. (e.g., Admin, FarmManager, FarmWorker, Accountant)."
         },
         "createdAt": {
           "type": "string",
@@ -441,7 +441,7 @@
           "schema": {
             "$ref": "#/backend/entities/UserProfile"
           },
-          "description": "Stores authentication-linked user profiles. The `userId` is the Firebase Authentication UID. Includes the user's `role` (Admin, FarmManager, FarmWorker). If the user is a logged-in FarmWorker, their corresponding `FarmWorker` document's ID (`farmWorkerId`) is assumed to be their `userId` for direct authorization.",
+          "description": "Stores authentication-linked user profiles. The `userId` is the Firebase Authentication UID. Includes the user's `role` (Admin, FarmManager, FarmWorker, Accountant). If the user is a logged-in FarmWorker, their corresponding `FarmWorker` document's ID (`farmWorkerId`) is assumed to be their `userId` for direct authorization.",
           "params": [
             {
               "name": "userId",
@@ -462,6 +462,22 @@
             {
               "name": "adminId",
               "description": "The Firebase Authentication User ID (UID) of an Admin."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/system_roles_accountant/{accountantId}",
+        "definition": {
+          "entityName": "AccountantRole",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "A collection for Role-Based Access Control. The existence of a document at `/system_roles_accountant/$(request.auth.uid)` grants Accountant privileges. This supports efficient, existence-based role checks in security rules.",
+          "params": [
+            {
+              "name": "accountantId",
+              "description": "The Firebase Authentication User ID (UID) of an Accountant."
             }
           ]
         }
@@ -575,6 +591,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to adhere strictly to the core design principles, especially Authorization Independence and QAPs, by leveraging structural segregation and strategic denormalization. \n\n**Authorization Independence (CRITICAL):**\n1.  **Denormalized Manager IDs:** For `FarmWorker`, `FarmField`, and `FarmTask` entities, the `managerId` (Firebase UID of the managing Farm Manager) is explicitly stored within each document. This eliminates the need for `get()` calls to parent documents or external collections to determine if a manager has permission to access or modify a resource. Security rules can directly check `resource.data.managerId == request.auth.uid`, ensuring atomic and efficient authorization checks.\n2.  **Denormalized Worker UIDs for Tasks:** The `FarmTask` entity will include an additional denormalized field, `assignedWorkerUids` (an array of Firebase UIDs of assigned workers with login accounts). This allows a logged-in worker to query and verify access to their assigned tasks by checking `request.auth.uid in resource.data.assignedWorkerUids` without relying on `get()` calls or complex lookups across collections. \n3.  **Self-Owned Data for Workers:** For worker-specific data (Attendance, Productivity, Payroll) stored as subcollections under `/farm_workers/{farmWorkerId}`, the `farmWorkerId` in the path is assumed to be the Firebase UID (`request.auth.uid`) for logged-in workers. This crucial design choice enables direct path-based authorization for individual workers, allowing security rules to simply verify `farmWorkerId == request.auth.uid`. For workers without a login, `farmWorkerId` will be a system-generated ID, and their data will be managed by their assigned managers or admins. This approach ensures atomic self-access without any `get()` calls for path resolution.\n\n**QAPs (Queries Are Not Filters):**\n1.  **Structural Segregation for Roles:** Dedicated collections like `/system_roles_admin/{adminId}` provide clear, existence-based authorization for top-level roles. The `role` field in `/user_profiles/{userId}` defines other roles, allowing rules to check `request.auth.role == 'Admin'` or `request.auth.role == 'FarmManager'` after fetching the user's profile (which is implicitly available as `request.auth.token.role`). \n2.  **Manager-Scoped Data:** `FarmWorker`, `FarmField`, and `FarmTask` documents include `managerId`. This allows managers to issue queries like `db.collection('farm_workers').where('managerId', '==', currentUser.uid)` which are directly supported by security rules, ensuring that `list` operations only return authorized data and do not rely on rules to filter results after retrieval.\n3.  **Worker-Scoped Data:** Subcollections like `/farm_workers/{farmWorkerId}/attendance_records` ensure that data pertaining to a specific worker is logically grouped. For logged-in workers, if `farmWorkerId` is their Firebase UID, queries are simple and rules can ensure self-access. Otherwise, the data is accessible by managers (via `managerId` on the parent `farm_workers` document) and admins.\n\nThis structure prioritizes flat collections for commonly accessed entities (workers, fields, tasks) that require manager-level access, and hierarchical subcollections for data strictly owned by or pertaining to a specific worker, ensuring both scalability and fine-grained access control with minimal rule complexity."
+    "reasoning": "The Firestore structure is designed to adhere strictly to the core design principles, especially Authorization Independence and QAPs, by leveraging structural segregation and strategic denormalization. \n\n**Authorization Independence (CRITICAL):**\n1.  **Denormalized Manager IDs:** For `FarmWorker`, `FarmField`, and `FarmTask` entities, the `managerId` (Firebase UID of the managing Farm Manager) is explicitly stored within each document. This eliminates the need for `get()` calls to parent documents or external collections to determine if a manager has permission to access or modify a resource. Security rules can directly check `resource.data.managerId == request.auth.uid`, ensuring atomic and efficient authorization checks.\n2.  **Denormalized Worker UIDs for Tasks:** The `FarmTask` entity will include an additional denormalized field, `assignedWorkerUids` (an array of Firebase UIDs of assigned workers with login accounts). This allows a logged-in worker to query and verify access to their assigned tasks by checking `request.auth.uid in resource.data.assignedWorkerUids` without relying on `get()` calls or complex lookups across collections. \n3.  **Self-Owned Data for Workers:** For worker-specific data (Attendance, Productivity, Payroll) stored as subcollections under `/farm_workers/{farmWorkerId}`, the `farmWorkerId` in the path is assumed to be the Firebase UID (`request.auth.uid`) for logged-in workers. This crucial design choice enables direct path-based authorization for individual workers, allowing security rules to simply verify `farmWorkerId == request.auth.uid`. For workers without a login, `farmWorkerId` will be a system-generated ID, and their data will be managed by their assigned managers or admins. This approach ensures atomic self-access without any `get()` calls for path resolution.\n\n**QAPs (Queries Are Not Filters):**\n1.  **Structural Segregation for Roles:** Dedicated collections like `/system_roles_admin/{adminId}` and `/system_roles_accountant/{accountantId}` provide clear, existence-based authorization for top-level roles. The `role` field in `/user_profiles/{userId}` defines other roles, allowing rules to check `request.auth.role == 'Admin'` or `request.auth.role == 'FarmManager'` after fetching the user's profile (which is implicitly available as `request.auth.token.role`). \n2.  **Manager-Scoped Data:** `FarmWorker`, `FarmField`, and `FarmTask` documents include `managerId`. This allows managers to issue queries like `db.collection('farm_workers').where('managerId', '==', currentUser.uid)` which are directly supported by security rules, ensuring that `list` operations only return authorized data and do not rely on rules to filter results after retrieval.\n3.  **Worker-Scoped Data:** Subcollections like `/farm_workers/{farmWorkerId}/attendance_records` ensure that data pertaining to a specific worker is logically grouped. For logged-in workers, if `farmWorkerId` is their Firebase UID, queries are simple and rules can ensure self-access. Otherwise, the data is accessible by managers (via `managerId` on the parent `farm_workers` document) and admins.\n\nThis structure prioritizes flat collections for commonly accessed entities (workers, fields, tasks) that require manager-level access, and hierarchical subcollections for data strictly owned by or pertaining to a specific worker, ensuring both scalability and fine-grained access control with minimal rule complexity."
   }
 }
