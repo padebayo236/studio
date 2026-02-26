@@ -1,3 +1,4 @@
+
 "use client"
 
 import Link from "next/link"
@@ -30,21 +31,27 @@ const navItems = [
 export function MainNav({ isMobile = false }: { isMobile?: boolean }) {
   const pathname = usePathname()
 
+  // For the dashboard link, we want it to be active for the root route "/"
+  const isDashboardActive = pathname === '/';
+
   return (
     <nav className={cn("grid items-start px-4 text-sm font-medium", isMobile && "gap-2")}>
-      {navItems.map((item) => (
-        <Link
-          key={item.label}
-          href={item.href}
-          className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-            pathname === item.href && "bg-muted text-primary"
-          )}
-        >
-          <item.icon className="h-4 w-4" />
-          {item.label}
-        </Link>
-      ))}
+      {navItems.map((item) => {
+        const isActive = item.href === '/' ? isDashboardActive : pathname.startsWith(item.href);
+        return (
+          <Link
+            key={item.label}
+            href={item.href}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+              isActive && "bg-muted text-primary"
+            )}
+          >
+            <item.icon className="h-4 w-4" />
+            {item.label}
+          </Link>
+        )
+      })}
        <div className="my-4 border-t border-border/20"></div>
         <Link
           href="#"
