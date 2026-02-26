@@ -36,15 +36,19 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && getRequestingUserData().role == 'admin';
+      return isSignedIn() && getRequestingUserData().role == 'Admin';
     }
 
     function isManager() {
-      return isSignedIn() && getRequestingUserData().role == 'manager';
+      return isSignedIn() && getRequestingUserData().role == 'FarmManager';
     }
 
     function isWorker() {
-      return isSignedIn() && getRequestingUserData().role == 'worker';
+      return isSignedIn() && getRequestingUserData().role == 'FarmWorker';
+    }
+    
+    function isAccountant() {
+      return isSignedIn() && getRequestingUserData().role == 'Accountant';
     }
 
     function isOwner(userId) {
@@ -103,7 +107,7 @@ service cloud.firestore {
 
     // Workers can create/update their own attendance. Managers can manage attendance for workers in their fields.
     match /attendance/{attendanceId} {
-      allow read: if isAdmin() || isManagerOfField(resource.data.fieldId) || (isWorker() && resource.data.workerId == request.auth.uid);
+      allow read: if isAdmin() || isAccountant() || isManagerOfField(resource.data.fieldId) || (isWorker() && resource.data.workerId == request.auth.uid);
       allow create: if (isWorker() && request.resource.data.workerId == request.auth.uid) || (isAdmin() || isManagerOfField(request.resource.data.fieldId));
       allow update: if (isWorker() && resource.data.workerId == request.auth.uid) || (isAdmin() || isManagerOfField(resource.data.fieldId));
       allow delete: if isAdmin() || isManagerOfField(resource.data.fieldId);
@@ -111,26 +115,27 @@ service cloud.firestore {
 
     // Workers can create their own productivity entries. Managers can manage entries in their fields.
     match /productivity/{productivityId} {
-      allow read: if isAdmin() || isManagerOfField(resource.data.fieldId) || (isWorker() && resource.data.workerId == request.auth.uid);
+      allow read: if isAdmin() || isAccountant() || isManagerOfField(resource.data.fieldId) || (isWorker() && resource.data.workerId == request.auth.uid);
       allow create: if (isWorker() && request.resource.data.workerId == request.auth.uid) || (isAdmin() || isManagerOfField(request.resource.data.fieldId));
       allow update: if (isWorker() && resource.data.workerId == request.auth.uid) || (isAdmin() || isManagerOfField(resource.data.fieldId));
       allow delete: if isAdmin() || isManagerOfField(resource.data.fieldId);
     }
 
-    // Payroll is sensitive. Managed by Admins. Readable by relevant worker/manager.
+    // Payroll is sensitive. Managed by Admins. Readable by relevant worker/accountant.
     match /payroll/{payrollId} {
-      allow read: if isAdmin() || isManager() || (isWorker() && resource.data.workerId == request.auth.uid);
+      allow read: if isAdmin() || isAccountant() || (isWorker() && resource.data.workerId == request.auth.uid);
       allow write: if isAdmin();
 
       match /paymentBreakdown/{breakdownId} {
-        allow read: if isAdmin() || isManager() || (isWorker() && get(/databases/$(database)/documents/payroll/$(payrollId)).data.workerId == request.auth.uid);
+        allow read: if isAdmin() || isAccountant() || (isWorker() && get(/databases/$(database)/documents/payroll/$(payrollId)).data.workerId == request.auth.uid);
         allow write: if isAdmin();
       }
     }
 
     // Reports managed by Admins and Managers.
     match /reports/{reportId} {
-      allow read, write: if isAdmin() || isManager();
+      allow read: if isAdmin() || isManager() || isAccountant();
+      allow write: if isAdmin() || isManager();
     }
   }
 }

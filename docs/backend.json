@@ -25,7 +25,7 @@
         "role": {
           "type": "string",
           "description": "The role of the user within the system.",
-          "enum": ["admin", "manager", "worker"]
+          "enum": ["Admin", "FarmManager", "FarmWorker", "Accountant"]
         },
         "assignedFieldIds": {
           "type": "array",
