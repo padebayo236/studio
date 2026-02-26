@@ -69,6 +69,13 @@ service cloud.firestore {
     }
 
     /**
+     * Checks if the current user is a FarmManager.
+     */
+    function isFarmManager() {
+        return get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.role == 'FarmManager';
+    }
+
+    /**
      * Checks if the current user's UID matches the provided userId.
      * This is the primary function for enforcing document ownership.
      */
@@ -231,7 +238,7 @@ service cloud.firestore {
      */
     match /farm_tasks/{taskId} {
       allow get: if isAdmin() || isManagerOfResource() || isAssignedToTask();
-      allow list: if isAdmin();
+      allow list: if isAdmin() || isFarmManager();
       allow create: if isAdmin() || (isSignedIn() && request.resource.data.managerId == request.auth.uid);
       allow update: if isAdmin() || (resource != null && isManagerOfResource());
       allow delete: if isAdmin() || (resource != null && isManagerOfResource());

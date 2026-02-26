@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -23,53 +24,85 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, Sparkles } from "lucide-react"
+import { CalendarIcon, Sparkles, Loader2 } from "lucide-react"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { generateTaskDescriptionAction } from "@/app/actions"
-import { demoData } from "@/lib/demo-data"
-import type { CropType, TaskType } from "@/lib/types"
+import type { FarmTask, CropType, TaskType, FarmField, Worker } from "@/lib/types"
+import { useFirestore, useCollection, useMemoFirebase, useUserProfile } from "@/firebase"
+import { collection, doc } from 'firebase/firestore';
+import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { useToast } from "@/hooks/use-toast"
+import { v4 as uuidv4 } from 'uuid';
 
 const taskSchema = z.object({
   taskType: z.string({ required_error: "Please select a task type." }),
   cropType: z.string({ required_error: "Please select a crop type." }),
-  fieldName: z.string().min(1, "Field name is required."),
+  fieldId: z.string().min(1, "Field name is required."),
   description: z.string().min(10, "Description must be at least 10 characters."),
   deadline: z.date({ required_error: "A deadline is required." }),
   expectedOutput: z.coerce.number().min(1, "Expected output must be at least 1."),
-  assignedWorkers: z.array(z.string()).min(1, "Assign at least one worker."),
-  status: z.enum(["Pending", "In Progress", "Completed"]),
+  expectedOutputUnit: z.string().min(1, "Unit is required, e.g., kg, acres."),
+  assignedWorkerIds: z.array(z.string()).min(1, "Assign at least one worker."),
 });
 
 type TaskFormValues = z.infer<typeof taskSchema>;
 
 interface TaskFormProps {
-  onSubmit: (data: Omit<z.infer<typeof taskSchema>, 'status'>) => void;
+    task?: FarmTask;
+    onFormSubmit: () => void;
 }
 
-export function TaskForm({ onSubmit }: TaskFormProps) {
+export function TaskForm({ task, onFormSubmit }: TaskFormProps) {
+  const { userProfile } = useUserProfile();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
   const [isGenerating, setIsGenerating] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const isEditing = !!task;
+
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskSchema),
-    defaultValues: {
-      description: "",
-      assignedWorkers: [],
-      status: "Pending",
-    },
+    defaultValues: isEditing
+      ? {
+          ...task,
+          deadline: new Date(task.deadline),
+        }
+      : {
+          taskType: undefined,
+          cropType: undefined,
+          fieldId: undefined,
+          description: "",
+          deadline: undefined,
+          expectedOutput: 0,
+          expectedOutputUnit: 'kg',
+          assignedWorkerIds: [],
+        },
   })
 
+  const fieldsRef = useMemoFirebase(() => firestore && collection(firestore, 'farm_fields'), [firestore]);
+  const { data: fieldsData } = useCollection<FarmField>(fieldsRef);
+  
+  const workersRef = useMemoFirebase(() => firestore && collection(firestore, 'farm_workers'), [firestore]);
+  const { data: workersData } = useCollection<Worker>(workersRef);
+
+
   const handleGenerateDescription = async () => {
-    const { cropType, taskType } = form.getValues();
+    const { cropType, taskType, fieldId } = form.getValues();
     if (!cropType || !taskType) {
       form.setError("description", { message: "Please select Crop and Task type first." });
       return;
     }
     setIsGenerating(true);
     try {
+      const fieldName = fieldsData?.find(f => f.id === fieldId)?.name;
       const result = await generateTaskDescriptionAction({
         cropType: cropType as CropType,
         taskType: taskType as TaskType,
+        fieldName,
       });
       if (result.description) {
         form.setValue("description", result.description, { shouldValidate: true });
@@ -83,7 +116,31 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
   };
 
   const processSubmit = (data: TaskFormValues) => {
-    onSubmit({ ...data, deadline: data.deadline.toISOString() });
+    if (!firestore || !userProfile) return;
+    setIsSubmitting(true);
+    
+    const taskData = {
+        ...data,
+        deadline: data.deadline.toISOString(),
+        managerId: userProfile.id,
+        status: task?.status || 'Pending',
+    };
+
+    if (isEditing) {
+        const taskRef = doc(firestore, 'farm_tasks', task.id!);
+        updateDocumentNonBlocking(taskRef, taskData);
+        toast({ title: "Task Updated", description: "The task has been successfully updated." });
+    } else {
+        const tasksCollection = collection(firestore, 'farm_tasks');
+        addDocumentNonBlocking(tasksCollection, {
+            ...taskData,
+            createdAt: new Date().toISOString(),
+        });
+        toast({ title: "Task Created", description: "The new task has been successfully created." });
+    }
+
+    setIsSubmitting(false);
+    onFormSubmit();
   };
 
   return (
@@ -97,9 +154,7 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
                 <FormItem>
                 <FormLabel>Task Type</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                    <SelectTrigger><SelectValue placeholder="Select a task" /></SelectTrigger>
-                    </FormControl>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select a task" /></SelectTrigger></FormControl>
                     <SelectContent>
                         <SelectItem value="Planting">Planting</SelectItem>
                         <SelectItem value="Weeding">Weeding</SelectItem>
@@ -119,9 +174,7 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
                 <FormItem>
                 <FormLabel>Crop Type</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                    <SelectTrigger><SelectValue placeholder="Select a crop" /></SelectTrigger>
-                    </FormControl>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select a crop" /></SelectTrigger></FormControl>
                     <SelectContent>
                         <SelectItem value="Maize">Maize</SelectItem>
                         <SelectItem value="Rice">Rice</SelectItem>
@@ -144,7 +197,7 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
               <FormLabel className="flex justify-between items-center">
                 Description
                 <Button type="button" size="sm" variant="outline" onClick={handleGenerateDescription} disabled={isGenerating}>
-                  <Sparkles className="mr-2 h-4 w-4" />
+                  {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Sparkles className="mr-2 h-4 w-4" />}
                   {isGenerating ? "Generating..." : "Generate with AI"}
                 </Button>
               </FormLabel>
@@ -158,16 +211,14 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
         
         <FormField
           control={form.control}
-          name="fieldName"
+          name="fieldId"
           render={({ field }) => (
             <FormItem>
                 <FormLabel>Field</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                    <SelectTrigger><SelectValue placeholder="Select a field" /></SelectTrigger>
-                    </FormControl>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select a field" /></SelectTrigger></FormControl>
                     <SelectContent>
-                        {demoData.fields.map(f => <SelectItem key={f.fieldId} value={f.fieldName}>{f.fieldName}</SelectItem>)}
+                        {fieldsData?.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
                 <FormMessage />
@@ -187,61 +238,58 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
                         <FormControl>
                             <Button
                             variant={"outline"}
-                            className={cn(
-                                "pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                            )}
+                            className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
                             >
-                            {field.value ? (
-                                format(field.value, "PPP")
-                            ) : (
-                                <span>Pick a date</span>
-                            )}
+                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
                             <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                             </Button>
                         </FormControl>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            disabled={(date) => date < new Date()}
-                            initialFocus
-                        />
+                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date()} initialFocus />
                         </PopoverContent>
                     </Popover>
                     <FormMessage />
                     </FormItem>
                 )}
             />
-            <FormField
-                control={form.control}
-                name="expectedOutput"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Expected Output (kg)</FormLabel>
-                    <FormControl>
-                        <Input type="number" placeholder="e.g., 200" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-            />
+            <div className="grid grid-cols-2 gap-2">
+                <FormField
+                    control={form.control}
+                    name="expectedOutput"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Expected Output</FormLabel>
+                        <FormControl><Input type="number" placeholder="e.g., 200" {...field} /></FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="expectedOutputUnit"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Unit</FormLabel>
+                        <FormControl><Input placeholder="e.g., kg" {...field} /></FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            </div>
         </div>
         
         <FormField
             control={form.control}
-            name="assignedWorkers"
+            name="assignedWorkerIds"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>Assign Workers</FormLabel>
+                <FormLabel>Assign Worker</FormLabel>
+                {/* This only supports single worker assignment for simplicity, but the schema supports multiple */}
                 <Select onValueChange={(value) => field.onChange([value])} defaultValue={field.value?.[0]}>
-                    <FormControl>
-                    <SelectTrigger><SelectValue placeholder="Select a worker" /></SelectTrigger>
-                    </FormControl>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select a worker" /></SelectTrigger></FormControl>
                     <SelectContent>
-                        {demoData.workers.filter(w => w.status === 'Active').map(w => <SelectItem key={w.workerId} value={w.workerId}>{w.name}</SelectItem>)}
+                        {workersData?.filter(w => w.status === 'Active').map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
                 <FormMessage />
@@ -250,7 +298,10 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
         />
 
         <div className="flex justify-end pt-4">
-            <Button type="submit">Create Task</Button>
+            <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditing ? "Save Changes" : "Create Task"}
+            </Button>
         </div>
       </form>
     </Form>

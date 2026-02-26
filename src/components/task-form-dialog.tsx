@@ -1,7 +1,7 @@
-"use client"
 
-import * as React from "react"
-import { Button } from "@/components/ui/button"
+'use client';
+
+import * as React from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,38 +9,40 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog"
-import { TaskForm } from "./task-form"
-import type { Task } from "@/lib/types"
+} from '@/components/ui/dialog';
+import { TaskForm } from './task-form';
+import type { FarmTask } from '@/lib/types';
 
 interface TaskFormDialogProps {
-  onTaskCreate: (task: Omit<Task, 'taskId'>) => void;
+  children: React.ReactNode;
+  taskToEdit?: FarmTask;
 }
 
-export function TaskFormDialog({ onTaskCreate }: TaskFormDialogProps) {
+export function TaskFormDialog({
+  children,
+  taskToEdit,
+}: TaskFormDialogProps) {
   const [open, setOpen] = React.useState(false);
+  const isEditing = !!taskToEdit;
 
-  const handleFormSubmit = (data: Omit<Task, 'taskId'>) => {
-    onTaskCreate(data);
+  const handleFormSubmit = () => {
     setOpen(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>Create Task</Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create New Task</DialogTitle>
+          <DialogTitle>
+            {isEditing ? 'Edit Task' : 'Create New Task'}
+          </DialogTitle>
           <DialogDescription>
-            Fill in the details for the new farm task. Click "Generate with AI" for a detailed description.
+            Fill in the details for the farm task. Click "Generate with AI" for a detailed description.
           </DialogDescription>
         </DialogHeader>
-        <TaskForm onSubmit={handleFormSubmit} />
+        <TaskForm task={taskToEdit} onFormSubmit={handleFormSubmit} />
       </DialogContent>
     </Dialog>
-  )
+  );
 }

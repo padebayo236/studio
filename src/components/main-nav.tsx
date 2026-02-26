@@ -21,7 +21,7 @@ const navItems = [
   { href: "/", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/workers", icon: Users, label: "Workers" },
   { href: "/attendance", icon: Clock, label: "Attendance" },
-  { href: "#", icon: ClipboardList, label: "Tasks" },
+  { href: "/tasks", icon: ClipboardList, label: "Tasks" },
   { href: "#", icon: Tractor, label: "Productivity" },
   { href: "#", icon: Warehouse, label: "Fields" },
   { href: "#", icon: DollarSign, label: "Payroll" },

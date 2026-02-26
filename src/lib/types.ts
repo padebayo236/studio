@@ -1,4 +1,5 @@
 
+
 export type UserRole = 'Admin' | 'FarmManager' | 'FarmWorker' | 'Accountant';
 
 export interface UserProfile {
@@ -44,25 +45,31 @@ export type TaskStatus = 'Pending' | 'In Progress' | 'Completed';
 export type CropType = 'Maize' | 'Rice' | 'Tomato' | 'Cassava' | 'Other';
 export type TaskType = 'Planting' | 'Weeding' | 'Harvesting' | 'Irrigation' | 'Fertilizer Application';
 
-export interface Task {
-  taskId: string;
-  assignedWorkers: string[]; // array of workerIds
-  fieldName: string;
+export interface FarmTask {
+  id?: string;
+  fieldId: string;
   cropType: CropType;
   taskType: TaskType;
   description: string;
-  expectedOutput: number; // e.g., 200kg
-  actualOutput?: number;
+  expectedOutput: number;
+  expectedOutputUnit: string;
   deadline: string; // ISO 8601
+  assignedWorkerIds: string[]; // array of workerIds
   status: TaskStatus;
+  managerId: string;
+  createdAt: string;
+  completedAt?: string;
 }
 
-export interface Field {
-  fieldId: string;
-  fieldName: string;
-  size: number; // in acres
-  cropType: CropType;
-  season: string; // e.g., "2024 Wet Season"
+export interface FarmField {
+  id?: string;
+  name: string;
+  size: number;
+  sizeUnit: string;
+  cropType: string;
+  season: string;
+  managerId: string;
+  createdAt: string;
 }
 
 export interface Productivity {
