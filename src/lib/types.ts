@@ -72,14 +72,19 @@ export interface FarmField {
   createdAt: string;
 }
 
-export interface Productivity {
-  productivityId: string;
-  workerId: string;
-  fieldId: string;
-  date: string; // ISO 8601
-  outputQuantity: number; // in kg
-  hoursWorked: number;
+export interface ProductivityEntry {
+    id?: string;
+    workerId: string;
+    fieldId: string;
+    taskId: string;
+    date: string; // ISO Date string
+    outputQuantity: number;
+    outputUnit: string;
+    hoursWorkedForEntry: number;
+    notes?: string;
+    createdAt: string; // ISO DateTime string
 }
+
 
 export interface Payroll {
   payrollId: string;

@@ -22,7 +22,7 @@ const navItems = [
   { href: "/workers", icon: Users, label: "Workers" },
   { href: "/attendance", icon: Clock, label: "Attendance" },
   { href: "/tasks", icon: ClipboardList, label: "Tasks" },
-  { href: "#", icon: Tractor, label: "Productivity" },
+  { href: "/productivity", icon: Tractor, label: "Productivity" },
   { href: "#", icon: Warehouse, label: "Fields" },
   { href: "#", icon: DollarSign, label: "Payroll" },
   { href: "#", icon: FileText, label: "Reports" },
