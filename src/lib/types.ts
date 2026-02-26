@@ -86,12 +86,17 @@ export interface ProductivityEntry {
 }
 
 
-export interface Payroll {
-  payrollId: string;
+export interface PayrollSummary {
+  id?: string;
   workerId: string;
-  totalHours: number;
-  totalPayment: number;
-  month: string; // e.g., "2024-07"
+  month: number;
+  year: number;
+  totalHoursWorkedMonth: number;
+  totalTaskBasedPayment: number;
+  effectiveWageRate: number;
+  effectiveWageRateUnit: string;
+  totalPaymentDue: number;
+  generatedAt: string; // ISO DateTime string
 }
 
 export interface ProductivityDataPoint {

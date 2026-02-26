@@ -9,11 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Clock, Hourglass, Tractor, DollarSign, Check, Loader2 } from "lucide-react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, query, where, doc, limit } from "firebase/firestore"
+import { collection, query, where, doc, limit, orderBy } from "firebase/firestore"
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { format, differenceInMinutes } from "date-fns"
 import { useToast } from "@/hooks/use-toast"
-import type { AttendanceRecord } from "@/lib/types"
+import type { AttendanceRecord, PayrollSummary } from "@/lib/types"
 import { ProductivityFormDialog } from "@/components/productivity-form-dialog"
 
 // Dummy data for now
@@ -40,10 +40,26 @@ export function FarmWorkerDashboard() {
   }, [firestore, user]);
 
   const { data: attendanceData, isLoading: isAttendanceLoading } = useCollection<AttendanceRecord>(attendanceQuery);
+
+  const payrollQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    const currentMonth = new Date().getMonth() + 1;
+    const currentYear = new Date().getFullYear();
+    return query(
+      collection(firestore, 'farm_workers', user.uid, 'payroll_summaries'),
+      where('month', '==', currentMonth),
+      where('year', '==', currentYear),
+      limit(1)
+    );
+  }, [firestore, user]);
+  
+  const { data: payrollData } = useCollection<PayrollSummary>(payrollQuery);
   
   const todaysRecord = attendanceData?.[0];
   const isClockedIn = todaysRecord && !todaysRecord.timeOut;
   const hasClockedOut = todaysRecord && todaysRecord.timeOut;
+  
+  const estimatedEarnings = payrollData?.[0] ? `$${payrollData[0].totalPaymentDue.toFixed(2)}` : "-";
 
   const handleClockIn = async () => {
     if (!firestore || !user) return;
@@ -141,7 +157,7 @@ export function FarmWorkerDashboard() {
         />
         <StatCard
           title="Estimated Earnings"
-          value={"-"}
+          value={estimatedEarnings}
           icon={DollarSign}
           description="This month's estimated earnings"
         />

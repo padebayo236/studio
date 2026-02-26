@@ -7,6 +7,7 @@ import { Users, ClipboardCheck, Tractor, DollarSign, Award, BarChart, UserCheck 
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, collectionGroup, query, where } from "firebase/firestore";
 import { format } from "date-fns";
+import type { PayrollSummary } from "@/lib/types";
 
 export function AdminDashboard() {
   const firestore = useFirestore();
@@ -27,6 +28,22 @@ export function AdminDashboard() {
     );
   }, [firestore]);
   const { data: presentWorkersData } = useCollection(presentWorkersQuery);
+
+  const payrollQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collectionGroup(firestore, 'payroll_summaries'));
+  }, [firestore]);
+  const { data: payrollsData } = useCollection<PayrollSummary>(payrollQuery);
+  
+  const totalLaborCost = React.useMemo(() => {
+    if (!payrollsData) return "-";
+    const currentMonth = new Date().getMonth() + 1;
+    const currentYear = new Date().getFullYear();
+    const cost = payrollsData
+      .filter(p => p.month === currentMonth && p.year === currentYear)
+      .reduce((sum, p) => sum + p.totalPaymentDue, 0);
+    return `$${cost.toFixed(2)}`;
+  }, [payrollsData]);
 
 
   return (
@@ -57,7 +74,7 @@ export function AdminDashboard() {
         />
          <StatCard
           title="Total Labor Cost"
-          value={"-"}
+          value={totalLaborCost}
           icon={DollarSign}
           description="This month's payroll"
         />
