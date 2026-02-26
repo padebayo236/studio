@@ -26,12 +26,12 @@ import { Loader2, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function AttendancePage() {
-  const { userProfile, isLoading: isAuthLoading } = useUserProfile();
+  const { user, userProfile, isLoading: isProfileLoading } = useUserProfile();
   const router = useRouter();
   const firestore = useFirestore();
 
   const [records, setRecords] = React.useState<any[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [isDataLoading, setIsDataLoading] = React.useState(true);
   const [error, setError] = React.useState<Error | null>(null);
 
   const workersRef = useMemoFirebase(
@@ -49,15 +49,19 @@ export default function AttendancePage() {
   }, [workersData]);
 
   React.useEffect(() => {
-    if (isAuthLoading) return;
-    if (!userProfile) {
+    if (isProfileLoading) return;
+    if (!user) {
       router.replace('/login');
       return;
+    }
+    if (!userProfile) {
+        setIsDataLoading(false);
+        return;
     }
 
     const fetchAttendance = async () => {
       if (!firestore) return;
-      setIsLoading(true);
+      setIsDataLoading(true);
 
       try {
         let attendanceQuery;
@@ -70,7 +74,7 @@ export default function AttendancePage() {
            
            if (workerIds.length === 0) {
              setRecords([]);
-             setIsLoading(false);
+             setIsDataLoading(false);
              return;
            }
 
@@ -79,7 +83,7 @@ export default function AttendancePage() {
            attendanceQuery = query(collection(firestore, 'attendance'), where('workerId', 'in', workerIds.slice(0, 30)));
         } else {
             // Workers should not access this page.
-            setIsLoading(false);
+            setIsDataLoading(false);
             return;
         }
 
@@ -93,15 +97,15 @@ export default function AttendancePage() {
         setError(e);
         console.error("Error fetching attendance:", e);
       } finally {
-        setIsLoading(false);
+        setIsDataLoading(false);
       }
     };
 
     fetchAttendance();
-  }, [isAuthLoading, userProfile, firestore, router]);
+  }, [isProfileLoading, user, userProfile, firestore, router]);
 
 
-  if (isAuthLoading || isLoading) {
+  if (isProfileLoading || isDataLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-16 w-16 animate-spin" />
