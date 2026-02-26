@@ -1,3 +1,9 @@
+"use client";
+
+import * as React from 'react';
+import { useRouter } from 'next/navigation';
+import { useUser } from '@/firebase';
+import { Loader2 } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -33,6 +39,23 @@ import { AgriProLogo } from "@/components/icons"
 import { demoData } from "@/lib/demo-data"
 
 export default function Dashboard() {
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+
+  React.useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.replace('/login');
+    }
+  }, [user, isUserLoading, router]);
+
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-16 w-16 animate-spin" />
+      </div>
+    );
+  }
+
   const activeWorkers = demoData.workers.filter(w => w.status === 'Active').length;
   const totalTasks = demoData.tasks.length;
   const totalOutput = demoData.productivity.reduce((sum, p) => sum + p.outputQuantity, 0);
