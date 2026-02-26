@@ -23,8 +23,9 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import type { FarmField, CropType } from '@/lib/types';
-import { useFirestore, useUserProfile } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import { useUserProfile } from '@/hooks/use-user-profile';
+import { collection, doc, query, where } from 'firebase/firestore';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
