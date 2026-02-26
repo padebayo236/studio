@@ -101,12 +101,20 @@ export function ProductivityForm({ entry, onFormSubmit }: ProductivityFormProps)
   const selectedWorkerId = form.watch("workerId");
 
   const tasksQuery = useMemoFirebase(() => {
-    if (!firestore || !selectedWorkerId) return null;
-    return query(
-        collection(firestore, 'farm_tasks'), 
-        where('assignedWorkerIds', 'array-contains', selectedWorkerId)
-    );
-  }, [firestore, selectedWorkerId]);
+    if (!firestore || !selectedWorkerId || !userProfile) return null;
+    
+    const baseQuery = collection(firestore, 'farm_tasks');
+    const workerConstraint = where('assignedWorkerIds', 'array-contains', selectedWorkerId);
+
+    if (userProfile.role === 'FarmManager') {
+        const managerConstraint = where('managerId', '==', userProfile.id);
+        return query(baseQuery, workerConstraint, managerConstraint);
+    }
+
+    // For Admin/Accountant, no manager constraint is needed
+    return query(baseQuery, workerConstraint);
+
+  }, [firestore, selectedWorkerId, userProfile]);
   const { data: tasksData } = useCollection<FarmTask>(tasksQuery);
 
   const processSubmit = (data: ProductivityFormValues) => {
