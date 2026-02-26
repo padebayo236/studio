@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, getDocs } from 'firebase/firestore';
+import { useFirestore, useMemoFirebase, useCollection } from '@/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import type { ProductivityEntry, Worker, FarmField, FarmTask } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,7 +23,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  MoreHorizontal,
   Loader2,
   AlertTriangle,
   PlusCircle,
@@ -35,20 +34,27 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  type ChartConfig,
 } from "@/components/ui/chart"
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Line, LineChart, ResponsiveContainer } from "recharts"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from "recharts"
 import { generateProductivityInsightsAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
   AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+
+const chartConfig = {
+  output: {
+    label: "Output (kg)",
+    color: "hsl(var(--primary))",
+  },
+} satisfies ChartConfig;
 
 export default function ProductivityPage() {
   const { userProfile, isLoading: isAuthLoading } = useUserProfile();
@@ -67,6 +73,7 @@ export default function ProductivityPage() {
   React.useEffect(() => {
     if (isAuthLoading) return;
     if (!userProfile) {
+      // Redirect will be handled by useUserProfile, so just stop loading.
       setIsEntriesLoading(false);
       return;
     }
@@ -89,10 +96,21 @@ export default function ProductivityPage() {
              setIsEntriesLoading(false);
              return;
            }
-
+           
+           const productivityChunks: ProductivityEntry[] = [];
            // Firestore 'in' queries are limited to 30 items.
-           productivityQuery = query(collection(firestore, 'productivity'), where('workerId', 'in', workerIds.slice(0, 30)));
+           for (let i = 0; i < workerIds.length; i += 30) {
+             const chunk = workerIds.slice(i, i + 30);
+             const q = query(collection(firestore, 'productivity'), where('workerId', 'in', chunk));
+             const snapshot = await getDocs(q);
+             snapshot.docs.forEach(doc => productivityChunks.push({ id: doc.id, ...doc.data() } as ProductivityEntry));
+           }
+           setEntries(productivityChunks);
+           setIsEntriesLoading(false);
+           return; // Early return to avoid re-running getDocs
         } else {
+            // For workers or other roles
+            setEntries([]);
             setIsEntriesLoading(false);
             return;
         }
@@ -187,15 +205,20 @@ export default function ProductivityPage() {
                     <CardDescription>Total output per worker.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={productivityByWorker}>
-                            <CartesianGrid vertical={false} />
-                            <XAxis dataKey="worker" tick={{ fontSize: 12 }} />
-                            <YAxis />
-                            <ChartTooltip content={<ChartTooltipContent />} />
-                            <Bar dataKey="output" fill="hsl(var(--primary))" radius={4} />
-                        </BarChart>
+                  <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                    <ResponsiveContainer>
+                      <BarChart data={productivityByWorker} accessibilityLayer>
+                        <CartesianGrid vertical={false} />
+                        <XAxis dataKey="worker" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                        <YAxis tickLine={false} axisLine={false} />
+                        <ChartTooltip
+                          cursor={false}
+                          content={<ChartTooltipContent indicator="dot" />}
+                        />
+                        <Bar dataKey="output" fill="var(--color-output)" radius={4} />
+                      </BarChart>
                     </ResponsiveContainer>
+                  </ChartContainer>
                 </CardContent>
             </Card>
             <Card>
@@ -220,11 +243,13 @@ export default function ProductivityPage() {
             <CardTitle>Productivity Log</CardTitle>
             <CardDescription>All recorded productivity entries from workers.</CardDescription>
           </div>
-          <ProductivityFormDialog>
-            <Button>
-              <PlusCircle className="mr-2" /> Log Entry
-            </Button>
-          </ProductivityFormDialog>
+          {(userProfile.role === 'Admin' || userProfile.role === 'FarmManager') && (
+            <ProductivityFormDialog>
+                <Button>
+                <PlusCircle className="mr-2" /> Log Entry
+                </Button>
+            </ProductivityFormDialog>
+          )}
         </CardHeader>
         <CardContent>
           <Table>
@@ -234,7 +259,7 @@ export default function ProductivityPage() {
                 <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="mx-auto h-8 w-8 animate-spin" /></TableCell></TableRow>
               ) : error ? (
                 <TableRow><TableCell colSpan={6} className="h-24 text-center text-destructive">Error: {error.message}</TableCell></TableRow>
-              ) : entries?.length ?? 0 > 0 ? (
+              ) : entries?.length > 0 ? (
                 entries?.map((entry) => (
                   <TableRow key={entry.id}>
                     <TableCell className="font-medium">{workerMap.get(entry.workerId) || 'Unknown Worker'}</TableCell>
