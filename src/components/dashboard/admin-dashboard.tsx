@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -47,6 +48,7 @@ import {
   Cell,
   Line,
   LineChart,
+  ResponsiveContainer,
 } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 
@@ -276,31 +278,33 @@ export function AdminDashboard() {
               Top 10 workers by total output (kg, all time).
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-6">
+          <CardContent>
             <ChartContainer config={productivityChartConfig} className="w-full h-[300px]">
-              <BarChart
-                data={productivityByWorker}
-                margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
-              >
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="worker"
-                  tick={{ fontSize: 12 }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
-                />
-                <YAxis />
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent indicator="dot" />}
-                />
-                <Bar
-                  dataKey="output"
-                  fill="var(--color-output)"
-                  radius={4}
-                />
-              </BarChart>
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                        data={productivityByWorker}
+                        margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
+                    >
+                        <CartesianGrid vertical={false} />
+                        <XAxis
+                        dataKey="worker"
+                        tick={{ fontSize: 12 }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={60}
+                        />
+                        <YAxis />
+                        <ChartTooltip
+                        cursor={false}
+                        content={<ChartTooltipContent indicator="dot" />}
+                        />
+                        <Bar
+                        dataKey="output"
+                        fill="var(--color-output)"
+                        radius={4}
+                        />
+                    </BarChart>
+                </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
@@ -313,34 +317,36 @@ export function AdminDashboard() {
           </CardHeader>
           <CardContent className="flex items-center justify-center pt-6">
             <ChartContainer config={laborChartConfig} className="mx-auto aspect-square h-[300px]">
-              <PieChart>
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent hideLabel />}
-                />
-                <Pie
-                  data={laborDistribution}
-                  dataKey="workers"
-                  nameKey="crop"
-                  innerRadius={60}
-                  strokeWidth={5}
-                >
-                  {laborDistribution.map((entry) => (
-                    <Cell
-                      key={`cell-${entry.crop}`}
-                      fill={
-                        laborChartConfig[
-                          entry.crop as keyof typeof laborChartConfig
-                        ]?.color || laborChartConfig['Other'].color
-                      }
-                    />
-                  ))}
-                </Pie>
-                <ChartLegend
-                  content={<ChartLegendContent nameKey="crop" />}
-                  className="[&>*]:justify-center"
-                />
-              </PieChart>
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <ChartTooltip
+                        cursor={false}
+                        content={<ChartTooltipContent hideLabel />}
+                        />
+                        <Pie
+                        data={laborDistribution}
+                        dataKey="workers"
+                        nameKey="crop"
+                        innerRadius={60}
+                        strokeWidth={5}
+                        >
+                        {laborDistribution.map((entry) => (
+                            <Cell
+                            key={`cell-${entry.crop}`}
+                            fill={
+                                laborChartConfig[
+                                entry.crop as keyof typeof laborChartConfig
+                                ]?.color || laborChartConfig['Other'].color
+                            }
+                            />
+                        ))}
+                        </Pie>
+                        <ChartLegend
+                        content={<ChartLegendContent nameKey="crop" />}
+                        className="[&>*]:justify-center"
+                        />
+                    </PieChart>
+                </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
@@ -352,35 +358,39 @@ export function AdminDashboard() {
               Total output (kg) over the last 12 months.
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-6">
+          <CardContent>
             <ChartContainer config={monthlyOutputChartConfig} className="w-full h-[300px]">
-              <LineChart
-                data={monthlyOutput}
-                margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
-              >
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                <YAxis />
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent indicator="dot" />}
-                />
-                <Line
-                  dataKey="output"
-                  type="monotone"
-                  stroke="var(--color-output)"
-                  strokeWidth={2}
-                  dot={{
-                    fill: "var(--color-output)",
-                  }}
-                  activeDot={{
-                    r: 6,
-                  }}
-                />
-              </LineChart>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                    data={monthlyOutput}
+                    margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
+                >
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                    <YAxis />
+                    <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent indicator="dot" />}
+                    />
+                    <Line
+                    dataKey="output"
+                    type="monotone"
+                    stroke="var(--color-output)"
+                    strokeWidth={2}
+                    dot={{
+                        fill: "var(--color-output)",
+                    }}
+                    activeDot={{
+                        r: 6,
+                    }}
+                    />
+                </LineChart>
+              </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
     </div>
   );
 }
+
+    

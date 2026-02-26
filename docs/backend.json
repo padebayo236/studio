@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -60,7 +61,11 @@
           "type": "string",
           "description": "Reference to the User entity if this worker has a login account."
         },
-        "fullName": {
+        "managerId": {
+          "type": "string",
+          "description": "Reference to the User entity of the FarmManager for this worker."
+        },
+        "name": {
           "type": "string",
           "description": "The full name of the farm worker."
         },
@@ -83,22 +88,17 @@
         "employmentType": {
           "type": "string",
           "description": "The employment type of the worker.",
-          "enum": ["permanent", "seasonal", "daily"]
-        },
-        "wageType": {
-          "type": "string",
-          "description": "The basis for wage calculation.",
-          "enum": ["hourly", "task-based"]
+          "enum": ["Permanent", "Seasonal", "Daily Wage"]
         },
         "wageRate": {
           "type": "number",
           "description": "The rate at which the worker is paid."
         },
-        "assignedFieldId": {
+        "assignedField": {
           "type": "string",
           "description": "Reference to the Field entity where this worker is primarily assigned."
         },
-        "photoURL": {
+        "photoUrl": {
           "type": "string",
           "description": "URL to the worker's profile photo.",
           "format": "uri"
@@ -106,7 +106,7 @@
         "status": {
           "type": "string",
           "description": "The current employment status of the worker.",
-          "enum": ["active", "inactive"]
+          "enum": ["Active", "Inactive"]
         },
         "createdAt": {
           "type": "string",
@@ -116,29 +116,12 @@
       },
       "required": [
         "id",
-        "fullName",
+        "name",
         "employmentType",
-        "wageType",
         "wageRate",
         "status",
         "createdAt"
       ]
-    },
-    "PerformanceSummary": {
-      "title": "PerformanceSummary",
-      "type": "object",
-      "description": "A summary of a worker's performance.",
-      "properties": {
-        "totalHoursWorked": {
-          "type": "number"
-        },
-        "totalOutput": {
-          "type": "number"
-        },
-        "productivityScore": {
-          "type": "number"
-        }
-      }
     },
     "Field": {
       "title": "Field",
@@ -149,7 +132,7 @@
           "type": "string",
           "description": "Unique identifier for the Field entity."
         },
-        "fieldName": {
+        "name": {
           "type": "string",
           "description": "The name or identifier of the field."
         },
@@ -170,9 +153,9 @@
           "type": "string",
           "description": "The current or most recent planting season for this field."
         },
-        "locationDescription": {
-          "type": "string",
-          "description": "A description of the field's location."
+        "managerId": {
+            "type": "string",
+            "description": "The ID of the manager responsible for this field."
         },
         "createdAt": {
           "type": "string",
@@ -182,29 +165,13 @@
       },
       "required": [
         "id",
-        "fieldName",
+        "name",
         "size",
         "sizeUnit",
         "cropType",
         "season",
         "createdAt"
       ]
-    },
-    "FieldStats": {
-      "title": "FieldStats",
-      "type": "object",
-      "description": "Statistics for a specific farm field.",
-      "properties": {
-        "totalOutput": {
-          "type": "number"
-        },
-        "totalLaborHours": {
-          "type": "number"
-        },
-        "productivityIndex": {
-          "type": "number"
-        }
-      }
     },
     "Task": {
       "title": "Task",
@@ -227,11 +194,11 @@
           "type": "string",
           "description": "The type of farm activity.",
           "enum": [
-            "planting",
-            "harvesting",
-            "weeding",
-            "irrigation",
-            "fertilizing"
+            "Planting",
+            "Harvesting",
+            "Weeding",
+            "Irrigation",
+            "Fertilizer Application"
           ]
         },
         "description": {
@@ -242,10 +209,9 @@
           "type": "number",
           "description": "The expected quantity of work to be completed."
         },
-        "outputUnit": {
+        "expectedOutputUnit": {
           "type": "string",
-          "description": "The unit for the expected output.",
-          "enum": ["kg", "tons", "acres"]
+          "description": "The unit for the expected output."
         },
         "assignedWorkerIds": {
           "type": "array",
@@ -257,14 +223,14 @@
         "status": {
           "type": "string",
           "description": "The current status of the task.",
-          "enum": ["pending", "in-progress", "completed"]
+          "enum": ["Pending", "In Progress", "Completed"]
         },
         "deadline": {
           "type": "string",
           "description": "The target date for task completion.",
           "format": "date-time"
         },
-        "createdBy": {
+        "managerId": {
           "type": "string",
           "description": "The ID of the user who created the task."
         },
@@ -281,26 +247,9 @@
         "assignedWorkerIds",
         "status",
         "deadline",
-        "createdBy",
+        "managerId",
         "createdAt"
       ]
-    },
-    "TaskUpdate": {
-      "title": "TaskUpdate",
-      "type": "object",
-      "description": "An update or comment on a task.",
-      "properties": {
-        "updateNote": {
-          "type": "string"
-        },
-        "updatedBy": {
-          "type": "string"
-        },
-        "updatedAt": {
-          "type": "string",
-          "format": "date-time"
-        }
-      }
     },
     "Attendance": {
       "title": "Attendance",
@@ -315,46 +264,31 @@
           "type": "string",
           "description": "Reference to the Worker whose attendance is being recorded."
         },
-        "fieldId": {
-          "type": "string",
-          "description": "Reference to the Field where the worker clocked in."
-        },
         "date": {
           "type": "string",
           "description": "The date of the attendance record.",
           "format": "date"
         },
-        "clockIn": {
+        "timeIn": {
           "type": "string",
           "description": "The timestamp when the worker clocked in.",
           "format": "date-time"
         },
-        "clockOut": {
+        "timeOut": {
           "type": "string",
           "description": "The timestamp when the worker clocked out.",
           "format": "date-time"
         },
-        "totalHours": {
+        "totalHoursWorked": {
           "type": "number",
           "description": "The calculated total hours worked for the day."
-        },
-        "attendanceStatus": {
-          "type": "string",
-          "description": "The status of the attendance for the day.",
-          "enum": ["present", "absent", "late"]
-        },
-        "recordedBy": {
-          "type": "string",
-          "description": "The ID of the user who recorded the attendance."
         }
       },
       "required": [
         "id",
         "workerId",
         "date",
-        "clockIn",
-        "attendanceStatus",
-        "recordedBy"
+        "timeIn"
       ]
     },
     "Productivity": {
@@ -383,10 +317,6 @@
           "description": "The date when the productivity was recorded.",
           "format": "date"
         },
-        "hoursWorked": {
-          "type": "number",
-          "description": "The hours spent to achieve this output."
-        },
         "outputQuantity": {
           "type": "number",
           "description": "The quantity of output recorded."
@@ -395,13 +325,9 @@
           "type": "string",
           "description": "The unit of measurement for the output quantity."
         },
-        "outputPerHour": {
+         "hoursWorkedForEntry": {
           "type": "number",
-          "description": "Auto-calculated output per hour."
-        },
-        "recordedBy": {
-          "type": "string",
-          "description": "The ID of the user who recorded the productivity."
+          "description": "The hours spent to achieve this output."
         }
       },
       "required": [
@@ -410,10 +336,9 @@
         "fieldId",
         "taskId",
         "date",
-        "hoursWorked",
         "outputQuantity",
         "outputUnit",
-        "recordedBy"
+        "hoursWorkedForEntry"
       ]
     },
     "Payroll": {
@@ -430,33 +355,24 @@
           "description": "Reference to the Worker for whom this payroll is generated."
         },
         "month": {
-          "type": "string",
-          "description": "The month for which the payroll is calculated (e.g., '2026-02')."
+          "type": "number",
+          "description": "The month for which the payroll is calculated (1-12)."
         },
-        "totalHours": {
+        "year": {
+          "type": "number",
+          "description": "The year for which the payroll is calculated."
+        },
+        "totalHoursWorkedMonth": {
           "type": "number",
           "description": "The total hours worked by the worker in this month."
         },
-        "totalTasksCompleted": {
-          "type": "number",
-          "description": "Total number of tasks completed in the month."
-        },
-        "hourlyPayment": {
-          "type": "number",
-          "description": "Total payment calculated based on hourly wage."
-        },
-        "taskPayment": {
+        "totalTaskBasedPayment": {
           "type": "number",
           "description": "Total payment calculated based on task output."
         },
-        "totalPayment": {
+        "totalPaymentDue": {
           "type": "number",
           "description": "The total payment due to the worker for the month."
-        },
-        "paymentStatus": {
-          "type": "string",
-          "description": "The status of the payment.",
-          "enum": ["pending", "paid"]
         },
         "generatedAt": {
           "type": "string",
@@ -468,181 +384,45 @@
         "id",
         "workerId",
         "month",
-        "totalPayment",
-        "paymentStatus",
+        "year",
+        "totalPaymentDue",
         "generatedAt"
       ]
-    },
-    "PaymentBreakdown": {
-      "title": "PaymentBreakdown",
-      "type": "object",
-      "description": "A breakdown of a single day's payment contributing to a payroll.",
-      "properties": {
-        "date": {
-          "type": "string",
-          "format": "date"
-        },
-        "hoursWorked": {
-          "type": "number"
-        },
-        "dailyPayment": {
-          "type": "number"
-        }
-      }
-    },
-    "Report": {
-      "title": "Report",
-      "type": "object",
-      "description": "Represents a generated report for auditing and analysis.",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "reportType": {
-          "type": "string",
-          "enum": [
-            "monthlyProductivity",
-            "payrollSummary",
-            "fieldPerformance"
-          ]
-        },
-        "generatedBy": {
-          "type": "string"
-        },
-        "dateRangeStart": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "dateRangeEnd": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "generatedAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "fileURL": {
-          "type": "string",
-          "format": "uri"
-        }
-      },
-      "required": ["id", "reportType", "generatedBy", "generatedAt"]
     }
   },
   "auth": {
     "providers": ["password", "anonymous"]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "schema": {
-            "$ref": "#/entities/User"
-          },
-          "description": "Stores user account information and roles for access control."
-        }
+      "/users/{userId}": {
+        "schema": { "$ref": "#/entities/User" },
+        "description": "Stores user account information and roles for access control."
       },
-      {
-        "path": "/workers/{workerId}",
-        "definition": {
-          "schema": {
-            "$ref": "#/entities/Worker"
-          },
-          "description": "Contains detailed profiles for all farm workers."
-        }
+      "/farm_workers/{workerId}": {
+        "schema": { "$ref": "#/entities/Worker" },
+        "description": "Contains detailed profiles for all farm workers."
       },
-      {
-        "path": "/workers/{workerId}/performanceSummary/{summaryId}",
-        "definition": {
-          "schema": {
-            "$ref": "#/entities/PerformanceSummary"
-          },
-          "description": "Subcollection for worker performance summaries."
-        }
+      "/farm_workers/{workerId}/attendance_records/{attendanceId}": {
+        "schema": { "$ref": "#/entities/Attendance" },
+        "description": "Subcollection for a worker's daily attendance records."
       },
-      {
-        "path": "/fields/{fieldId}",
-        "definition": {
-          "schema": {
-            "$ref": "#/entities/Field"
-          },
-          "description": "Stores information about specific farm fields or plots."
-        }
+      "/farm_workers/{workerId}/productivity_entries/{entryId}": {
+        "schema": { "$ref": "#/entities/Productivity" },
+        "description": "Subcollection for a worker's productivity entries."
       },
-      {
-        "path": "/fields/{fieldId}/fieldStats/{statId}",
-        "definition": {
-          "schema": {
-            "$ref": "#/entities/FieldStats"
-          },
-          "description": "Subcollection for field-specific statistics."
-        }
+      "/farm_workers/{workerId}/payroll_summaries/{summaryId}": {
+        "schema": { "$ref": "#/entities/Payroll" },
+        "description": "Subcollection for a worker's monthly payroll summaries."
       },
-      {
-        "path": "/tasks/{taskId}",
-        "definition": {
-          "schema": {
-            "$ref": "#/entities/Task"
-          },
-          "description": "Defines and tracks all operational farm activities."
-        }
+      "/farm_fields/{fieldId}": {
+        "schema": { "$ref": "#/entities/Field" },
+        "description": "Stores information about specific farm fields or plots."
       },
-      {
-        "path": "/tasks/{taskId}/taskUpdates/{updateId}",
-        "definition": {
-          "schema": {
-            "$ref": "#/entities/TaskUpdate"
-          },
-          "description": "Subcollection for updates and comments on a task."
-        }
-      },
-      {
-        "path": "/attendance/{attendanceId}",
-        "definition": {
-          "schema": {
-            "$ref": "#/entities/Attendance"
-          },
-          "description": "Top-level collection for all daily attendance records."
-        }
-      },
-      {
-        "path": "/productivity/{productivityId}",
-        "definition": {
-          "schema": {
-            "$ref": "#/entities/Productivity"
-          },
-          "description": "Top-level collection for all productivity entries."
-        }
-      },
-      {
-        "path": "/payroll/{payrollId}",
-        "definition": {
-          "schema": {
-            "$ref": "#/entities/Payroll"
-          },
-          "description": "Top-level collection for all monthly payroll summaries."
-        }
-      },
-      {
-        "path": "/payroll/{payrollId}/paymentBreakdown/{breakdownId}",
-        "definition": {
-          "schema": {
-            "$ref": "#/entities/PaymentBreakdown"
-          },
-          "description": "Subcollection detailing daily payments for a payroll period."
-        }
-      },
-      {
-        "path": "/reports/{reportId}",
-        "definition": {
-          "schema": {
-            "$ref": "#/entities/Report"
-          },
-          "description": "Collection for storing generated reports for auditing and analysis."
-        }
+      "/farm_tasks/{taskId}": {
+        "schema": { "$ref": "#/entities/Task" },
+        "description": "Defines and tracks all operational farm activities."
       }
-    ],
-    "reasoning": "The database is designed with a normalized, collection-based approach to ensure scalability and efficient querying. Top-level collections for `users`, `workers`, `fields`, `tasks`, `attendance`, `productivity`, and `payroll` create clear separation of concerns. Document references (`workerId`, `fieldId`, `taskId`) are used to link related data across collections, which is a standard NoSQL practice to avoid deep nesting and enable flexible queries. This structure supports common query patterns (e.g., fetching all tasks for a specific field) and allows for robust role-based access control by checking a user's role in the top-level `users` collection before granting access to other collections."
-  }
+    }
 }
+
+    

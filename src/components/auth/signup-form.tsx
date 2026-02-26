@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -75,6 +76,7 @@ export function SignUpForm() {
             name: data.name,
             email: data.email,
             role: data.role,
+            status: 'active',
             createdAt: new Date().toISOString(),
         };
 
@@ -200,3 +202,5 @@ export function SignUpForm() {
     </Form>
   );
 }
+
+    
