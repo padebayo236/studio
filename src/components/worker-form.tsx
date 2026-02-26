@@ -23,9 +23,15 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import type { Worker, EmploymentType, WorkerStatus, FarmField } from '@/lib/types';
+import type {
+  Worker,
+  EmploymentType,
+  WorkerStatus,
+  FarmField,
+} from '@/lib/types';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { useUserProfile } from '@/hooks/use-user-profile';
+import { collection, doc, query, where } from 'firebase/firestore';
 import {
   addDocumentNonBlocking,
   updateDocumentNonBlocking,
@@ -44,7 +50,11 @@ const workerSchema = z.object({
   wageRate: z.coerce.number().min(0, 'Wage rate cannot be negative.'),
   assignedField: z.string().min(1, 'Please assign a field.'),
   status: z.enum(['Active', 'Inactive']),
-  photoUrl: z.string().url('Please enter a valid URL.').optional().or(z.literal('')),
+  photoUrl: z
+    .string()
+    .url('Please enter a valid URL.')
+    .optional()
+    .or(z.literal('')),
 });
 
 type WorkerFormValues = z.infer<typeof workerSchema>;
@@ -56,6 +66,7 @@ interface WorkerFormProps {
 
 export function WorkerForm({ worker, onFormSubmit }: WorkerFormProps) {
   const firestore = useFirestore();
+  const { userProfile } = useUserProfile();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
   const isEditing = !!worker;
@@ -80,11 +91,26 @@ export function WorkerForm({ worker, onFormSubmit }: WorkerFormProps) {
         },
   });
 
-  const fieldsRef = useMemoFirebase(() => (firestore ? collection(firestore, 'farm_fields') : null), [firestore]);
-  const { data: fieldsData } = useCollection<FarmField>(fieldsRef);
+  const fieldsQuery = useMemoFirebase(() => {
+    if (!firestore || !userProfile) return null;
+
+    if (userProfile.role === 'Admin') {
+      return collection(firestore, 'farm_fields');
+    }
+
+    if (userProfile.role === 'FarmManager') {
+      return query(
+        collection(firestore, 'farm_fields'),
+        where('managerId', '==', userProfile.id)
+      );
+    }
+
+    return null;
+  }, [firestore, userProfile]);
+  const { data: fieldsData } = useCollection<FarmField>(fieldsQuery);
 
   const processSubmit = async (data: WorkerFormValues) => {
-    if (!firestore) {
+    if (!firestore || !userProfile) {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -95,6 +121,7 @@ export function WorkerForm({ worker, onFormSubmit }: WorkerFormProps) {
     setIsLoading(true);
 
     const workersCollection = collection(firestore, 'farm_workers');
+    const managerId = userProfile.id;
 
     try {
       if (isEditing) {
@@ -106,11 +133,14 @@ export function WorkerForm({ worker, onFormSubmit }: WorkerFormProps) {
           description: 'Worker profile updated.',
         });
       } else {
-        const newWorker: Omit<Worker, "id"> = {
+        const newWorker: any = {
           ...data,
-          workerId: uuidv4(), // Generate a unique worker ID
+          managerId,
+          createdAt: new Date().toISOString(),
           photoHint: 'worker portrait',
-          photoUrl: data.photoUrl || `https://picsum.photos/seed/${Math.random()}/100/100`
+          photoUrl:
+            data.photoUrl ||
+            `https://picsum.photos/seed/${Math.random()}/100/100`,
         };
         addDocumentNonBlocking(workersCollection, newWorker);
         toast({
@@ -133,10 +163,7 @@ export function WorkerForm({ worker, onFormSubmit }: WorkerFormProps) {
 
   return (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(processSubmit)}
-        className="space-y-4"
-      >
+      <form onSubmit={form.handleSubmit(processSubmit)} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -279,7 +306,7 @@ export function WorkerForm({ worker, onFormSubmit }: WorkerFormProps) {
                   </FormControl>
                   <SelectContent>
                     {fieldsData?.map((f) => (
-                      <SelectItem key={f.id} value={f.id}>
+                      <SelectItem key={f.id} value={f.id!}>
                         {f.name}
                       </SelectItem>
                     ))}
@@ -316,18 +343,21 @@ export function WorkerForm({ worker, onFormSubmit }: WorkerFormProps) {
         </div>
 
         <FormField
-            control={form.control}
-            name="photoUrl"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Worker Photo URL</FormLabel>
-                <FormControl>
-                  <Input placeholder="https://example.com/photo.jpg" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          control={form.control}
+          name="photoUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Worker Photo URL</FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="https://example.com/photo.jpg"
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <div className="flex justify-end pt-4">
           <Button type="submit" disabled={isLoading}>

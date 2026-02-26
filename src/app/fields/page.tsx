@@ -1,9 +1,10 @@
+
 'use client';
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, query, where } from 'firebase/firestore';
 import type { FarmField } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,6 +30,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function FieldsPage() {
   const { userProfile, isLoading: isAuthLoading } = useUserProfile();
@@ -36,11 +38,28 @@ export default function FieldsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const fieldsRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'farm_fields') : null),
-    [firestore]
-  );
-  const { data: fieldsData, isLoading, error } = useCollection<FarmField>(fieldsRef);
+  const fieldsQuery = useMemoFirebase(() => {
+    if (!firestore || !userProfile) return null;
+
+    if (userProfile.role === 'Admin') {
+      return collection(firestore, 'farm_fields');
+    }
+
+    if (userProfile.role === 'FarmManager') {
+      return query(
+        collection(firestore, 'farm_fields'),
+        where('managerId', '==', userProfile.id)
+      );
+    }
+
+    return null; // Should not be reached due to page-level access control
+  }, [firestore, userProfile]);
+
+  const {
+    data: fieldsData,
+    isLoading,
+    error,
+  } = useCollection<FarmField>(fieldsQuery);
 
   if (isAuthLoading || isLoading) {
     return (
@@ -116,8 +135,10 @@ export default function FieldsPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex justify-between items-center">
-                    <span className="font-semibold">Main Crop:</span>
-                    <span className="text-primary font-medium bg-primary/10 px-2 py-1 rounded-full">{field.cropType}</span>
+                  <span className="font-semibold">Main Crop:</span>
+                  <span className="text-primary font-medium bg-primary/10 px-2 py-1 rounded-full">
+                    {field.cropType}
+                  </span>
                 </div>
               </CardContent>
               <CardFooter className="flex justify-end gap-2">
@@ -154,13 +175,15 @@ export default function FieldsPage() {
         </div>
       ) : (
         <Card className="flex flex-col items-center justify-center p-12">
-            <CardTitle>No Fields Found</CardTitle>
-            <CardDescription className="mt-2 mb-4">Get started by creating your first farm field.</CardDescription>
-            <FieldFormDialog>
-                <Button>
-                    <PlusCircle /> Add New Field
-                </Button>
-            </FieldFormDialog>
+          <CardTitle>No Fields Found</CardTitle>
+          <CardDescription className="mt-2 mb-4">
+            Get started by creating your first farm field.
+          </CardDescription>
+          <FieldFormDialog>
+            <Button>
+              <PlusCircle /> Add New Field
+            </Button>
+          </FieldFormDialog>
         </Card>
       )}
     </div>

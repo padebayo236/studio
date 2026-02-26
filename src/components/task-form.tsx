@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -31,7 +32,7 @@ import { generateTaskDescriptionAction } from "@/app/actions"
 import type { FarmTask, CropType, TaskType, FarmField, Worker } from "@/lib/types"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { useUserProfile } from "@/hooks/use-user-profile"
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, query, where } from 'firebase/firestore';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { useToast } from "@/hooks/use-toast"
 import { v4 as uuidv4 } from 'uuid';
@@ -83,8 +84,17 @@ export function TaskForm({ task, onFormSubmit }: TaskFormProps) {
         },
   })
 
-  const fieldsRef = useMemoFirebase(() => firestore && collection(firestore, 'farm_fields'), [firestore]);
-  const { data: fieldsData } = useCollection<FarmField>(fieldsRef);
+  const fieldsQuery = useMemoFirebase(() => {
+    if (!firestore || !userProfile) return null;
+    if (userProfile.role === 'Admin') {
+        return collection(firestore, 'farm_fields');
+    }
+    if (userProfile.role === 'FarmManager') {
+        return query(collection(firestore, 'farm_fields'), where('managerId', '==', userProfile.id));
+    }
+    return null;
+  }, [firestore, userProfile]);
+  const { data: fieldsData } = useCollection<FarmField>(fieldsQuery);
   
   const workersRef = useMemoFirebase(() => firestore && collection(firestore, 'farm_workers'), [firestore]);
   const { data: workersData } = useCollection<Worker>(workersRef);
