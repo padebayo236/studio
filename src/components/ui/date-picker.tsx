@@ -13,23 +13,19 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 
-interface DatePickerProps extends React.ComponentPropsWithoutRef<"button"> {
+interface DatePickerProps {
   value: Date | undefined
   onChange: (date: Date | undefined) => void
+  disabled?: boolean
+  className?: string
   disabledDate?: (date: Date) => boolean
 }
 
-export function DatePicker({
-  value,
-  onChange,
-  disabledDate,
-  className,
-  ...props
-}: DatePickerProps) {
-  const [isOpen, setIsOpen] = React.useState(false)
 
+export function DatePicker({ value, onChange, disabled, className, disabledDate }: DatePickerProps) {
+    const [open, setOpen] = React.useState(false)
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant={"outline"}
@@ -38,19 +34,19 @@ export function DatePicker({
             !value && "text-muted-foreground",
             className
           )}
-          {...props}
+          disabled={disabled}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
           {value ? format(value, "PPP") : <span>Pick a date</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto p-0">
         <Calendar
           mode="single"
           selected={value}
           onSelect={(date) => {
             onChange(date)
-            setIsOpen(false)
+            setOpen(false)
           }}
           disabled={disabledDate}
           initialFocus
