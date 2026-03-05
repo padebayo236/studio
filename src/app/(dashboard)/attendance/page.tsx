@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useFirestore } from '@/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import type { AttendanceRecord, Worker } from '@/lib/types';
+import type { Worker } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -37,11 +37,11 @@ export default function AttendancePage() {
 
 
   React.useEffect(() => {
-    if (isProfileLoading) return;
     if (!user) {
       router.replace('/login');
       return;
     }
+    if (isProfileLoading) return;
     if (!userProfile || !firestore) {
         setIsDataLoading(false);
         return;
@@ -180,3 +180,4 @@ export default function AttendancePage() {
     </Card>
   );
 }
+

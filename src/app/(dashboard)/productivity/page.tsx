@@ -191,7 +191,7 @@ export default function ProductivityPage() {
   if (!userProfile || !['Admin', 'FarmManager', 'Accountant'].includes(userProfile.role)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Card className="w-1/2"><CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="text-destructive" /> Access Denied</CardTitle><CardDescription>You do not have permission to view this page.</CardDescription></CardHeader><CardContent><p>Please contact an administrator if you believe this is an error.</p><Button onClick={() => router.push('/')} className="mt-4">Go to Dashboard</Button></CardContent></Card>
+        <Card className="w-1/2"><CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="text-destructive" /> Access Denied</CardTitle><CardDescription>You do not have permission to view this page.</CardDescription></CardHeader><CardContent><p>Please contact an administrator if you believe this is an error.</p><Button onClick={() => router.push('/dashboard')} className="mt-4">Go to Dashboard</Button></CardContent></Card>
       </div>
     );
   }
@@ -321,3 +321,4 @@ export default function ProductivityPage() {
     </div>
   );
 }
+
