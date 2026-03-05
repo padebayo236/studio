@@ -21,9 +21,9 @@ import type { UserRole } from "@/lib/types"
 const allNavItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", roles: ['Admin', 'FarmManager', 'FarmWorker', 'Accountant'] },
   { href: "/workers", icon: Users, label: "Workers", roles: ['Admin', 'FarmManager', 'Accountant'] },
-  { href: "/attendance", icon: Clock, label: "Attendance", roles: ['Admin', 'FarmManager', 'Accountant'] },
-  { href: "/tasks", icon: ClipboardList, label: "Tasks", roles: ['Admin', 'FarmManager'] },
-  { href: "/productivity", icon: Tractor, label: "Productivity", roles: ['Admin', 'FarmManager', 'Accountant'] },
+  { href: "/attendance", icon: Clock, label: "Attendance", roles: ['Admin', 'FarmManager', 'Accountant', 'FarmWorker'] },
+  { href: "/tasks", icon: ClipboardList, label: "Tasks", roles: ['Admin', 'FarmManager', 'FarmWorker'] },
+  { href: "/productivity", icon: Tractor, label: "Productivity", roles: ['Admin', 'FarmManager', 'Accountant', 'FarmWorker'] },
   { href: "/fields", icon: Map, label: "Fields", roles: ['Admin', 'FarmManager'] },
   { href: "/payroll", icon: DollarSign, label: "Payroll", roles: ['Admin', 'Accountant'] },
   { href: "/reports", icon: FileText, label: "Reports", roles: ['Admin', 'Accountant'] },

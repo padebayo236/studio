@@ -25,17 +25,25 @@ import { Loader2, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function AttendancePage() {
-  const { userProfile, isLoading: isProfileLoading } = useUserProfile();
+  const { user, userProfile, isLoading: isProfileLoading } = useUserProfile();
   const router = useRouter();
 
-  const { data: records, isLoading: isAttendanceLoading, error } = useAttendance();
+  const { data: allRecords, isLoading: isAttendanceLoading, error } = useAttendance();
   const { data: allWorkers, isLoading: isWorkersLoading } = useWorkers();
-  
+
   const workerNameMap = React.useMemo(() => {
     if (!allWorkers) return new Map<string, string>();
     return new Map(allWorkers.map(w => [w.id, w.name]));
   }, [allWorkers]);
   
+  const records = React.useMemo(() => {
+    if (!allRecords) return [];
+    if (userProfile?.role === 'FarmWorker') {
+      return allRecords.filter(record => record.workerId === user?.uid);
+    }
+    return allRecords;
+  }, [allRecords, userProfile, user]);
+
   const isDataLoading = isProfileLoading || isAttendanceLoading || isWorkersLoading;
 
   if (isDataLoading) {
@@ -46,7 +54,7 @@ export default function AttendancePage() {
     );
   }
 
-  if (!userProfile || !['Admin', 'FarmManager', 'Accountant'].includes(userProfile.role)) {
+  if (!userProfile || !['Admin', 'FarmManager', 'Accountant', 'FarmWorker'].includes(userProfile.role)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Card className="w-1/2">

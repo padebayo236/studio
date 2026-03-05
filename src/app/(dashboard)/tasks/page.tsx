@@ -47,12 +47,20 @@ const statusVariant: { [key in TaskStatus]: 'default' | 'secondary' | 'destructi
 };
 
 export default function TasksPage() {
-  const { userProfile, isLoading: isAuthLoading } = useUserProfile();
+  const { user, userProfile, isLoading: isAuthLoading } = useUserProfile();
   const router = useRouter();
   
-  const { data: tasksData, isLoading: isTasksLoading, error: tasksError, } = useTasks();
+  const { data: allTasks, isLoading: isTasksLoading, error: tasksError, } = useTasks();
   const { data: workersData } = useWorkers();
   const { data: fieldsData } = useFields();
+
+  const tasksData = React.useMemo(() => {
+    if (!allTasks) return [];
+    if (userProfile?.role === 'FarmWorker') {
+      return allTasks.filter(task => task.assignedWorkerIds.includes(user?.uid || ''));
+    }
+    return allTasks;
+  }, [allTasks, userProfile, user]);
 
   const workerMap = React.useMemo(() => 
     new Map(workersData?.map(w => [w.id, w.name]))
@@ -70,7 +78,7 @@ export default function TasksPage() {
     );
   }
 
-  if (!userProfile || !['Admin', 'FarmManager'].includes(userProfile.role)) {
+  if (!userProfile || !['Admin', 'FarmManager', 'FarmWorker'].includes(userProfile.role)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Card className="w-1/2">
@@ -104,12 +112,14 @@ export default function TasksPage() {
             Create, assign, and track all farm tasks.
           </CardDescription>
         </div>
-        <TaskFormDialog>
-            <Button>
-                <PlusCircle className="mr-2" />
-                Create Task
-            </Button>
-        </TaskFormDialog>
+        {(userProfile.role === 'Admin' || userProfile.role === 'FarmManager') && (
+            <TaskFormDialog>
+                <Button>
+                    <PlusCircle className="mr-2" />
+                    Create Task
+                </Button>
+            </TaskFormDialog>
+        )}
       </CardHeader>
       <CardContent>
         <Table>
@@ -176,11 +186,13 @@ export default function TasksPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <TaskFormDialog taskToEdit={task}>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                    Edit
-                                </DropdownMenuItem>
-                            </TaskFormDialog>
+                            {(userProfile.role === 'Admin' || userProfile.role === 'FarmManager') &&
+                              <TaskFormDialog taskToEdit={task}>
+                                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                      Edit
+                                  </DropdownMenuItem>
+                              </TaskFormDialog>
+                            }
                             <DropdownMenuSeparator />
                             {userProfile.role === 'Admin' &&
                               <DropdownMenuItem className="text-red-500">

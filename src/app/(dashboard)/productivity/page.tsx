@@ -61,7 +61,7 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export default function ProductivityPage() {
-  const { userProfile, isLoading: isAuthLoading } = useUserProfile();
+  const { user, userProfile, isLoading: isAuthLoading } = useUserProfile();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -69,10 +69,19 @@ export default function ProductivityPage() {
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [showInsightsDialog, setShowInsightsDialog] = React.useState(false);
   
-  const { data: entries, isLoading: isEntriesLoading, error } = useProductivity();
+  const { data: allEntries, isLoading: isEntriesLoading, error } = useProductivity();
   const { data: allWorkers, isLoading: isWorkersLoading } = useWorkers();
   const { data: fieldsData } = useFields();
   const { data: tasksData } = useTasks();
+  
+  const entries = React.useMemo(() => {
+    if (!allEntries) return [];
+    if (userProfile?.role === 'FarmWorker') {
+      return allEntries.filter(entry => entry.workerId === user?.uid);
+    }
+    return allEntries;
+  }, [allEntries, userProfile, user]);
+
 
   const workerMap = React.useMemo(() => new Map(allWorkers?.map(w => [w.id, w.name])), [allWorkers]);
   const fieldMap = React.useMemo(() => new Map(fieldsData?.map(f => [f.id, f.name])), [fieldsData]);
@@ -119,7 +128,7 @@ export default function ProductivityPage() {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-16 w-16 animate-spin" /></div>;
   }
 
-  if (!userProfile || !['Admin', 'FarmManager', 'Accountant'].includes(userProfile.role)) {
+  if (!userProfile || !['Admin', 'FarmManager', 'Accountant', 'FarmWorker'].includes(userProfile.role)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Card className="w-1/2"><CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="text-destructive" /> Access Denied</CardTitle><CardDescription>You do not have permission to view this page.</CardDescription></CardHeader><CardContent><p>Please contact an administrator if you believe this is an error.</p><Button onClick={() => router.push('/dashboard')} className="mt-4">Go to Dashboard</Button></CardContent></Card>
@@ -129,43 +138,45 @@ export default function ProductivityPage() {
 
   return (
     <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Worker Output (kg)</CardTitle>
-                    <CardDescription>Total output per worker.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ChartContainer config={chartConfig} className="h-[300px] w-full">
-                    <ResponsiveContainer>
-                      <BarChart data={productivityByWorker} accessibilityLayer>
-                        <CartesianGrid vertical={false} />
-                        <XAxis dataKey="worker" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
-                        <YAxis tickLine={false} axisLine={false} />
-                        <ChartTooltip
-                          cursor={false}
-                          content={<ChartTooltipContent indicator="dot" />}
-                        />
-                        <Bar dataKey="output" fill="var(--color-output)" radius={4} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
-                </CardContent>
-            </Card>
-            <Card>
-                 <CardHeader>
-                    <CardTitle>Productivity Insights</CardTitle>
-                    <CardDescription>Use AI to analyze the productivity data and generate actionable insights.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center justify-center h-full gap-4">
-                     <Button onClick={handleGenerateInsights} disabled={isGenerating}>
-                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                        {isGenerating ? 'Analyzing Data...' : 'Generate AI Insights'}
-                    </Button>
-                    <p className="text-xs text-muted-foreground">Analyzes the raw data from the table below.</p>
-                </CardContent>
-            </Card>
-        </div>
+        {userProfile.role !== 'FarmWorker' && (
+          <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                  <CardHeader>
+                      <CardTitle>Worker Output (kg)</CardTitle>
+                      <CardDescription>Total output per worker.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                      <ResponsiveContainer>
+                        <BarChart data={productivityByWorker} accessibilityLayer>
+                          <CartesianGrid vertical={false} />
+                          <XAxis dataKey="worker" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                          <YAxis tickLine={false} axisLine={false} />
+                          <ChartTooltip
+                            cursor={false}
+                            content={<ChartTooltipContent indicator="dot" />}
+                          />
+                          <Bar dataKey="output" fill="var(--color-output)" radius={4} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  </CardContent>
+              </Card>
+              <Card>
+                   <CardHeader>
+                      <CardTitle>Productivity Insights</CardTitle>
+                      <CardDescription>Use AI to analyze the productivity data and generate actionable insights.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center justify-center h-full gap-4">
+                       <Button onClick={handleGenerateInsights} disabled={isGenerating}>
+                          {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                          {isGenerating ? 'Analyzing Data...' : 'Generate AI Insights'}
+                      </Button>
+                      <p className="text-xs text-muted-foreground">Analyzes the raw data from the table below.</p>
+                  </CardContent>
+              </Card>
+          </div>
+        )}
 
 
       <Card>
@@ -174,7 +185,7 @@ export default function ProductivityPage() {
             <CardTitle>Productivity Log</CardTitle>
             <CardDescription>All recorded productivity entries from workers.</CardDescription>
           </div>
-          {(userProfile.role === 'Admin' || userProfile.role === 'FarmManager') && (
+          {(userProfile.role === 'Admin' || userProfile.role === 'FarmManager' || userProfile.role === 'FarmWorker') && (
             <ProductivityFormDialog>
                 <Button>
                 <PlusCircle className="mr-2" /> Log Entry

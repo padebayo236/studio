@@ -7,20 +7,20 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Clock, Hourglass, Tractor, DollarSign, Check, Loader2 } from "lucide-react"
+import { Clock, Tractor, DollarSign, Check, Loader2, ClipboardList, CheckCircle2 } from "lucide-react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, query, where, doc, limit, orderBy } from "firebase/firestore"
+import { collection, query, where, doc, limit } from "firebase/firestore"
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
-import { format, differenceInMinutes } from "date-fns"
+import { format, differenceInMinutes, isToday, parseISO } from "date-fns"
 import { useToast } from "@/hooks/use-toast"
-import type { AttendanceRecord, PayrollSummary } from "@/lib/types"
+import type { AttendanceRecord, PayrollSummary, FarmTask, TaskStatus, ProductivityEntry } from "@/lib/types"
 import { ProductivityFormDialog } from "@/components/productivity-form-dialog"
 
-// Dummy data for now
-const todaysTasks = [
-  { id: 'T004', name: 'Irrigation', field: 'North Field', status: 'In Progress' },
-  { id: 'T005', name: 'Fertilizer Application', field: 'South Field', status: 'Pending' },
-];
+const statusVariant: { [key in TaskStatus]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
+  Completed: 'default',
+  'In Progress': 'secondary',
+  Pending: 'outline',
+};
 
 export function FarmWorkerDashboard() {
   const { user } = useUser();
@@ -29,6 +29,7 @@ export function FarmWorkerDashboard() {
   
   const [isClocking, setIsClocking] = React.useState(false);
 
+  // --- DATA FETCHING ---
   const attendanceQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -39,9 +40,27 @@ export function FarmWorkerDashboard() {
       limit(1)
     );
   }, [firestore, user]);
-
   const { data: attendanceData, isLoading: isAttendanceLoading } = useCollection<AttendanceRecord>(attendanceQuery);
+  const todaysRecord = attendanceData?.[0];
 
+  const tasksQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(
+      collection(firestore, 'tasks'),
+      where('assignedWorkerIds', 'array-contains', user.uid)
+    );
+  }, [firestore, user]);
+  const { data: tasksData, isLoading: isTasksLoading } = useCollection<FarmTask>(tasksQuery);
+
+  const productivityQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(
+        collection(firestore, 'productivity'),
+        where('workerId', '==', user.uid)
+    );
+  }, [firestore, user]);
+  const { data: productivityData } = useCollection<ProductivityEntry>(productivityQuery);
+  
   const payrollQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     const currentMonth = new Date().getMonth() + 1;
@@ -54,15 +73,31 @@ export function FarmWorkerDashboard() {
       limit(1)
     );
   }, [firestore, user]);
-  
   const { data: payrollData } = useCollection<PayrollSummary>(payrollQuery);
   
-  const todaysRecord = attendanceData?.[0];
+  // --- CALCULATIONS & STATE ---
+  const isLoading = isAttendanceLoading || isTasksLoading;
+
   const isClockedIn = todaysRecord && !todaysRecord.timeOut;
   const hasClockedOut = todaysRecord && todaysRecord.timeOut;
+
+  const todaysTasks = React.useMemo(() => 
+    tasksData?.filter(task => isToday(parseISO(task.deadline))) || []
+  , [tasksData]);
   
+  const tasksCompletedToday = React.useMemo(() => 
+    tasksData?.filter(task => task.status === 'Completed' && task.completedAt && isToday(parseISO(task.completedAt))).length || 0
+  , [tasksData]);
+  
+  const todaysOutput = React.useMemo(() => {
+      return productivityData
+        ?.filter(entry => isToday(parseISO(entry.date)))
+        .reduce((sum, entry) => sum + entry.outputQuantity, 0) || 0;
+  }, [productivityData]);
+
   const estimatedEarnings = payrollData?.[0] ? `$${payrollData[0].totalPaymentDue.toFixed(2)}` : "-";
 
+  // --- HANDLERS ---
   const handleClockIn = async () => {
     if (!firestore || !user) return;
     setIsClocking(true);
@@ -86,7 +121,6 @@ export function FarmWorkerDashboard() {
     const recordRef = doc(firestore, 'attendance', todaysRecord.id);
     const timeIn = new Date(todaysRecord.timeIn);
     const timeOut = new Date();
-    // Calculate hours with decimals
     const hours = differenceInMinutes(timeOut, timeIn) / 60;
 
     updateDocumentNonBlocking(recordRef, {
@@ -97,14 +131,21 @@ export function FarmWorkerDashboard() {
     setIsClocking(false);
   };
 
+  const handleUpdateTaskStatus = (task: FarmTask, status: TaskStatus) => {
+    if (!firestore) return;
+    const taskRef = doc(firestore, 'tasks', task.id);
+    const updatePayload: { status: TaskStatus, completedAt?: string } = { status };
+    if (status === 'Completed') {
+      updatePayload.completedAt = new Date().toISOString();
+    }
+    updateDocumentNonBlocking(taskRef, updatePayload);
+    toast({ title: `Task ${status}`, description: `Task "${task.taskType}" marked as ${status}.` });
+  }
+
+  // --- RENDER LOGIC ---
   const getClockButton = () => {
-    if (isAttendanceLoading || isClocking) {
-        return (
-            <Button className="w-full" disabled>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Please wait
-            </Button>
-        );
+    if (isLoading || isClocking) {
+        return <Button className="w-full" disabled><Loader2 className="mr-2 h-4 w-4 animate-spin" />Please wait</Button>;
     }
     if (hasClockedOut) {
         return <Button className="w-full" disabled>Clocked Out for Today</Button>
@@ -116,15 +157,15 @@ export function FarmWorkerDashboard() {
   }
   
   const getStatusMessage = () => {
-    if (isAttendanceLoading) return "Loading status...";
-    if (hasClockedOut) return `You clocked out for today. Total hours: ${todaysRecord.totalHoursWorked?.toFixed(2) || 0}`;
+    if (isLoading) return "Loading status...";
+    if (hasClockedOut) return `You clocked out. Total hours: ${todaysRecord.totalHoursWorked?.toFixed(2) || 0}`;
     if (isClockedIn) return `Clocked in since ${format(new Date(todaysRecord.timeIn), 'p')}.`;
     return "You are currently clocked out.";
   }
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Work Status</CardTitle>
@@ -137,69 +178,66 @@ export function FarmWorkerDashboard() {
                 </p>
             </CardContent>
         </Card>
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Log Productivity</CardTitle>
-                <Check className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-                <ProductivityFormDialog>
-                    <Button className="w-full">Log Your Work</Button>
-                </ProductivityFormDialog>
-                <p className="text-xs text-muted-foreground mt-2 h-8">
-                    Record your completed work for the day.
-                </p>
-            </CardContent>
-        </Card>
         <StatCard
-          title="Total Output"
-          value={"-"}
-          icon={Tractor}
-          description="Your total output this month"
+          title="Tasks Assigned Today"
+          value={String(todaysTasks.length)}
+          icon={ClipboardList}
+          description="Total tasks for you today"
         />
         <StatCard
-          title="Estimated Earnings"
-          value={estimatedEarnings}
-          icon={DollarSign}
-          description="This month's estimated earnings"
+          title="Tasks Completed Today"
+          value={String(tasksCompletedToday)}
+          icon={CheckCircle2}
+          description="Your completed tasks"
+        />
+        <StatCard
+          title="Total Output Today"
+          value={`${todaysOutput} kg`}
+          icon={Tractor}
+          description="Your total output today"
         />
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Today's Assigned Tasks</CardTitle>
-          <CardDescription>Here are the tasks you need to work on today.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Today's Assigned Tasks</CardTitle>
+            <CardDescription>Here are the tasks you need to work on today.</CardDescription>
+          </div>
+           <ProductivityFormDialog>
+                <Button>
+                    <Check className="mr-2 h-4 w-4" /> Log Your Work
+                </Button>
+            </ProductivityFormDialog>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Task</TableHead>
-                <TableHead>Field</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {todaysTasks.length > 0 ? (
+              {isTasksLoading ? (
+                 <TableRow><TableCell colSpan={3} className="h-24 text-center"><Loader2 className="mx-auto h-8 w-8 animate-spin" /></TableCell></TableRow>
+              ) : todaysTasks.length > 0 ? (
                 todaysTasks.map(task => (
                     <TableRow key={task.id}>
-                    <TableCell className="font-medium">{task.name}</TableCell>
-                    <TableCell>{task.field}</TableCell>
+                    <TableCell className="font-medium">{task.taskType} - <span className="text-muted-foreground">{task.cropType}</span></TableCell>
                     <TableCell>
-                        <Badge variant={task.status === 'In Progress' ? 'secondary' : 'destructive'}>{task.status}</Badge>
+                        <Badge variant={statusVariant[task.status]}>{task.status}</Badge>
                     </TableCell>
-                    <TableCell className="text-right">
-                        <Button variant="outline" size="sm">
-                        <Check className="mr-2 h-4 w-4" />
-                        Mark as Completed
-                        </Button>
+                    <TableCell className="text-right space-x-2">
+                        {task.status === 'Pending' && <Button variant="outline" size="sm" onClick={() => handleUpdateTaskStatus(task, 'In Progress')}>Start Task</Button>}
+                        {task.status === 'In Progress' && <Button variant="default" size="sm" onClick={() => handleUpdateTaskStatus(task, 'Completed')}>Complete Task</Button>}
                     </TableCell>
                     </TableRow>
                 ))
               ) : (
                 <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
+                    <TableCell colSpan={3} className="h-24 text-center">
                         No tasks assigned for today.
                     </TableCell>
                 </TableRow>
