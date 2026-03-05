@@ -3,9 +3,13 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
-import { useFirestore, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
-import type { ProductivityEntry, Worker, FarmField, FarmTask } from '@/lib/types';
+import {
+  useProductivity,
+  useWorkers,
+  useFields,
+  useTasks,
+} from '@/hooks/data/use-operational-data';
+import type { ProductivityEntry } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -59,49 +63,20 @@ const chartConfig = {
 export default function ProductivityPage() {
   const { userProfile, isLoading: isAuthLoading } = useUserProfile();
   const router = useRouter();
-  const firestore = useFirestore();
   const { toast } = useToast();
 
   const [aiInsights, setAiInsights] = React.useState<any>(null);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [showInsightsDialog, setShowInsightsDialog] = React.useState(false);
   
-  // --- DATA FETCHING ---
-  const productivityQuery = useMemoFirebase(() => firestore ? collection(firestore, 'productivity') : null, [firestore]);
-  const { data: allEntries, isLoading: isEntriesLoading, error } = useCollection<ProductivityEntry>(productivityQuery);
+  const { data: entries, isLoading: isEntriesLoading, error } = useProductivity();
+  const { data: allWorkers, isLoading: isWorkersLoading } = useWorkers();
+  const { data: fieldsData } = useFields();
+  const { data: tasksData } = useTasks();
 
-  const workersRef = useMemoFirebase(() => firestore && collection(firestore, 'workers'), [firestore]);
-  const { data: allWorkers, isLoading: isWorkersLoading } = useCollection<Worker>(workersRef);
-  
-  const fieldsRef = useMemoFirebase(() => firestore && collection(firestore, 'fields'), [firestore]);
-  const { data: fieldsData } = useCollection<FarmField>(fieldsRef);
-  
-  const tasksRef = useMemoFirebase(() => firestore && collection(firestore, 'tasks'), [firestore]);
-  const { data: tasksData } = useCollection<FarmTask>(tasksRef);
-
-  // --- DATA MAPPING & FILTERING ---
   const workerMap = React.useMemo(() => new Map(allWorkers?.map(w => [w.id, w.name])), [allWorkers]);
   const fieldMap = React.useMemo(() => new Map(fieldsData?.map(f => [f.id, f.name])), [fieldsData]);
   const taskMap = React.useMemo(() => new Map(tasksData?.map(t => [t.id, `${t.taskType} - ${t.cropType}`])), [tasksData]);
-
-  const managedWorkerIds = React.useMemo(() => {
-    if (!userProfile || !allWorkers) return new Set<string>();
-    if (userProfile.role === 'FarmManager') {
-      return new Set(allWorkers.filter(w => w.managerId === userProfile.id).map(w => w.id));
-    }
-    return new Set<string>();
-  }, [userProfile, allWorkers]);
-
-  const entries = React.useMemo(() => {
-    if (!allEntries || !userProfile) return [];
-    if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
-      return allEntries;
-    }
-    if (userProfile.role === 'FarmManager') {
-      return allEntries.filter(entry => managedWorkerIds.has(entry.workerId));
-    }
-    return [];
-  }, [allEntries, userProfile, managedWorkerIds]);
 
   const handleGenerateInsights = async () => {
     if (!entries || entries.length === 0) {

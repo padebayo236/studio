@@ -3,9 +3,8 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
-import type { Worker, AttendanceRecord } from '@/lib/types';
+import { useAttendance, useWorkers } from '@/hooks/data/use-operational-data';
+import type { AttendanceRecord } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -28,40 +27,14 @@ import { format } from 'date-fns';
 export default function AttendancePage() {
   const { userProfile, isLoading: isProfileLoading } = useUserProfile();
   const router = useRouter();
-  const firestore = useFirestore();
 
-  // 1. Fetch all attendance and all workers
-  const attendanceQuery = useMemoFirebase(() => firestore ? collection(firestore, 'attendance') : null, [firestore]);
-  const { data: allRecords, isLoading: isAttendanceLoading, error } = useCollection<AttendanceRecord>(attendanceQuery);
-
-  const workersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'workers') : null, [firestore]);
-  const { data: allWorkers, isLoading: isWorkersLoading } = useCollection<Worker>(workersQuery);
+  const { data: records, isLoading: isAttendanceLoading, error } = useAttendance();
+  const { data: allWorkers, isLoading: isWorkersLoading } = useWorkers();
   
-  // 2. Create maps for efficient lookups
   const workerNameMap = React.useMemo(() => {
     if (!allWorkers) return new Map<string, string>();
     return new Map(allWorkers.map(w => [w.id, w.name]));
   }, [allWorkers]);
-  
-  const managedWorkerIds = React.useMemo(() => {
-    if (!userProfile || !allWorkers) return new Set<string>();
-    if (userProfile.role === 'FarmManager') {
-      return new Set(allWorkers.filter(w => w.managerId === userProfile.id).map(w => w.id));
-    }
-    return new Set<string>();
-  }, [userProfile, allWorkers]);
-
-  // 3. Filter records based on role
-  const records = React.useMemo(() => {
-    if (!allRecords || !userProfile) return [];
-    if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
-      return allRecords;
-    }
-    if (userProfile.role === 'FarmManager') {
-      return allRecords.filter(record => managedWorkerIds.has(record.workerId));
-    }
-    return [];
-  }, [allRecords, userProfile, managedWorkerIds]);
   
   const isDataLoading = isProfileLoading || isAttendanceLoading || isWorkersLoading;
 
@@ -124,7 +97,7 @@ export default function AttendancePage() {
                   Error loading attendance data: {error.message}
                 </TableCell>
               </TableRow>
-            ) : records.length > 0 ? (
+            ) : records && records.length > 0 ? (
               records.map((record) => (
                 <TableRow key={record.id}>
                   <TableCell className="font-medium">{workerNameMap.get(record.workerId) || record.workerId}</TableCell>

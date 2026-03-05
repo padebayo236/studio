@@ -3,9 +3,9 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
-import type { FarmTask, TaskStatus, Worker, FarmField } from '@/lib/types';
+import { useFirestore } from '@/firebase';
+import { useTasks, useWorkers, useFields } from '@/hooks/data/use-operational-data';
+import type { FarmTask, TaskStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -38,7 +38,6 @@ import {
   PlusCircle,
 } from 'lucide-react';
 import { TaskFormDialog } from '@/components/task-form-dialog';
-import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { format, isPast } from 'date-fns';
 
 const statusVariant: { [key in TaskStatus]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
@@ -50,39 +49,10 @@ const statusVariant: { [key in TaskStatus]: 'default' | 'secondary' | 'destructi
 export default function TasksPage() {
   const { userProfile, isLoading: isAuthLoading } = useUserProfile();
   const router = useRouter();
-  const firestore = useFirestore();
-
-  const tasksQuery = useMemoFirebase(() => {
-    if (!firestore || !userProfile) return null;
-    if (userProfile.role === 'Admin') {
-      return collection(firestore, 'tasks');
-    }
-    if (userProfile.role === 'FarmManager') {
-      return query(
-        collection(firestore, 'tasks'),
-        where('managerId', '==', userProfile.id)
-      );
-    }
-    return null;
-  }, [firestore, userProfile]);
-
-  const {
-    data: tasksData,
-    isLoading: isTasksLoading,
-    error: tasksError,
-  } = useCollection<Omit<FarmTask, 'id'>>(tasksQuery);
-
-  const workersRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'workers') : null),
-    [firestore]
-  );
-  const { data: workersData } = useCollection<Omit<Worker, 'id'>>(workersRef);
-
-  const fieldsRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'fields') : null),
-    [firestore]
-  );
-  const { data: fieldsData } = useCollection<Omit<FarmField, 'id'>>(fieldsRef);
+  
+  const { data: tasksData, isLoading: isTasksLoading, error: tasksError, } = useTasks();
+  const { data: workersData } = useWorkers();
+  const { data: fieldsData } = useFields();
 
   const workerMap = React.useMemo(() => 
     new Map(workersData?.map(w => [w.id, w.name]))
@@ -212,9 +182,11 @@ export default function TasksPage() {
                                 </DropdownMenuItem>
                             </TaskFormDialog>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-500">
-                            Delete
-                            </DropdownMenuItem>
+                            {userProfile.role === 'Admin' &&
+                              <DropdownMenuItem className="text-red-500">
+                                Delete
+                              </DropdownMenuItem>
+                            }
                         </DropdownMenuContent>
                         </DropdownMenu>
                     </TableCell>
@@ -234,4 +206,3 @@ export default function TasksPage() {
     </Card>
   );
 }
-

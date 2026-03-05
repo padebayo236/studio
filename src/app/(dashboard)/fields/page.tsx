@@ -3,8 +3,9 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { useFields } from '@/hooks/data/use-operational-data';
 import type { FarmField } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,28 +39,7 @@ export default function FieldsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const fieldsQuery = useMemoFirebase(() => {
-    if (!firestore || !userProfile) return null;
-
-    if (userProfile.role === 'Admin') {
-      return collection(firestore, 'fields');
-    }
-
-    if (userProfile.role === 'FarmManager') {
-      return query(
-        collection(firestore, 'fields'),
-        where('managerId', '==', userProfile.id)
-      );
-    }
-
-    return null; // Should not be reached due to page-level access control
-  }, [firestore, userProfile]);
-
-  const {
-    data: fieldsData,
-    isLoading,
-    error,
-  } = useCollection<FarmField>(fieldsQuery);
+  const { data: fieldsData, isLoading, error, } = useFields();
 
   if (isAuthLoading || isLoading) {
     return (
@@ -147,28 +127,30 @@ export default function FieldsPage() {
                     <Edit /> Edit
                   </Button>
                 </FieldFormDialog>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm">
-                      <Trash2 /> Delete
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the
-                        field and all associated data.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleDelete(field.id!)}>
-                        Continue
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                {userProfile.role === 'Admin' &&
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm">
+                        <Trash2 /> Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the
+                          field and all associated data.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDelete(field.id!)}>
+                          Continue
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                }
               </CardFooter>
             </Card>
           ))}
@@ -189,4 +171,3 @@ export default function FieldsPage() {
     </div>
   );
 }
-

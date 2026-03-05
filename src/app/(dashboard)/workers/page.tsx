@@ -4,9 +4,10 @@ import * as React from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
-import type { Worker, EmploymentType, WorkerStatus, FarmField } from '@/lib/types';
+import { useFirestore } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { useWorkers, useFields } from '@/hooks/data/use-operational-data';
+import type { Worker, EmploymentType, WorkerStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -68,21 +69,8 @@ export default function WorkersPage() {
     status: 'all',
   });
 
-  const workersQuery = useMemoFirebase(() => {
-    if (!firestore || !userProfile) return null;
-
-    if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
-        return collection(firestore, 'workers');
-    } else if (userProfile.role === 'FarmManager') {
-        return query(collection(firestore, 'workers'), where('managerId', '==', userProfile.id));
-    }
-    return null;
-  }, [firestore, userProfile]);
-
-  const { data: workers, isLoading: isWorkersLoading, error } = useCollection<Worker>(workersQuery);
-
-  const fieldsRef = useMemoFirebase(() => firestore ? collection(firestore, 'fields') : null, [firestore]);
-  const { data: fieldsData } = useCollection<FarmField>(fieldsRef);
+  const { data: workers, isLoading: isWorkersLoading, error } = useWorkers();
+  const { data: fieldsData } = useFields();
 
   const fieldMap = React.useMemo(() => {
     if (!fieldsData) return new Map<string, string>();
@@ -289,19 +277,23 @@ export default function WorkersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <WorkerFormDialog workerToEdit={worker}>
-                            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                Edit
-                            </DropdownMenuItem>
-                        </WorkerFormDialog>
+                        {(userProfile.role === 'Admin' || userProfile.role === 'FarmManager') &&
+                          <WorkerFormDialog workerToEdit={worker}>
+                              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                  Edit
+                              </DropdownMenuItem>
+                          </WorkerFormDialog>
+                        }
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleDeactivate(worker.id!)}
-                          className="text-red-500"
-                          disabled={worker.status === 'Inactive'}
-                        >
-                          Deactivate
-                        </DropdownMenuItem>
+                        {userProfile.role === 'Admin' &&
+                          <DropdownMenuItem
+                            onClick={() => handleDeactivate(worker.id!)}
+                            className="text-red-500"
+                            disabled={worker.status === 'Inactive'}
+                          >
+                            Deactivate
+                          </DropdownMenuItem>
+                        }
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
