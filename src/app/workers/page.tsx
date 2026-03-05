@@ -1,12 +1,11 @@
-
 'use client';
 import * as React from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, updateDoc, query, where } from 'firebase/firestore';
-import type { Worker, EmploymentType, WorkerStatus } from '@/lib/types';
+import { collection, doc, updateDoc, query, where, onSnapshot } from 'firebase/firestore';
+import type { Worker, EmploymentType, WorkerStatus, FarmField } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -68,6 +67,10 @@ export default function WorkersPage() {
     status: 'all',
   });
 
+  const [workersData, setWorkersData] = React.useState<Worker[]>([]);
+  const [isWorkersLoading, setIsWorkersLoading] = React.useState(true);
+  const [error, setError] = React.useState<Error | null>(null);
+
   const workersQuery = useMemoFirebase(() => {
     if (!firestore || !userProfile) return null;
     if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
@@ -79,11 +82,42 @@ export default function WorkersPage() {
     return null;
   }, [firestore, userProfile]);
 
-  const {
-    data: workersData,
-    isLoading: isWorkersLoading,
-    error,
-  } = useCollection<Omit<Worker, 'id'>>(workersQuery);
+  React.useEffect(() => {
+    if (isAuthLoading) {
+      return;
+    }
+    if (!workersQuery) {
+        setIsWorkersLoading(false);
+        setWorkersData([]);
+        return;
+    }
+    console.log("App Mounted: Fetching workers...");
+    setIsWorkersLoading(true);
+    const unsubscribe = onSnapshot(workersQuery, 
+      (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Worker));
+        setWorkersData(data);
+        setIsWorkersLoading(false);
+        console.log("Data Loaded: Workers fetched.", data.length);
+      }, 
+      (err) => {
+        setError(err);
+        setIsWorkersLoading(false);
+        console.error("Error fetching workers:", err);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [isAuthLoading, workersQuery]);
+
+
+  const fieldsRef = useMemoFirebase(() => firestore ? collection(firestore, 'fields') : null, [firestore]);
+  const { data: fieldsData } = useCollection<FarmField>(fieldsRef);
+
+  const fieldMap = React.useMemo(() => {
+    if (!fieldsData) return new Map<string, string>();
+    return new Map(fieldsData.map(f => [f.id, f.name]));
+  }, [fieldsData]);
 
   React.useEffect(() => {
     if (!isAuthLoading && !user) {
@@ -219,6 +253,7 @@ export default function WorkersPage() {
               <TableHead className="hidden md:table-cell">
                 Employment Type
               </TableHead>
+              <TableHead className="hidden md:table-cell">Assigned Field</TableHead>
               <TableHead className="hidden md:table-cell">
                 Wage Rate
               </TableHead>
@@ -231,7 +266,7 @@ export default function WorkersPage() {
             {isWorkersLoading ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={7}
                   className="h-24 text-center"
                 >
                   <Loader2 className="mx-auto h-8 w-8 animate-spin" />
@@ -239,7 +274,7 @@ export default function WorkersPage() {
               </TableRow>
             ) : error ? (
                 <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-red-500">
+                    <TableCell colSpan={7} className="h-24 text-center text-red-500">
                         Error loading workers: {error.message}
                     </TableCell>
                 </TableRow>
@@ -270,6 +305,7 @@ export default function WorkersPage() {
                   <TableCell className="hidden md:table-cell">
                     {worker.employmentType}
                   </TableCell>
+                  <TableCell className="hidden md:table-cell">{fieldMap.get(worker.assignedField) || 'N/A'}</TableCell>
                   <TableCell className="hidden md:table-cell">
                     ${worker.wageRate.toFixed(2)}/hr
                   </TableCell>
@@ -307,7 +343,7 @@ export default function WorkersPage() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
+                <TableCell colSpan={7} className="h-24 text-center">
                   No workers found.
                 </TableCell>
               </TableRow>
