@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -80,35 +79,8 @@ export function TaskForm({ task, onFormSubmit }: TaskFormProps) {
         },
   })
 
-  const fieldsQuery = useMemoFirebase(() => {
-    if (!firestore || !userProfile) return null;
-    if (userProfile.role === 'Admin') {
-        return collection(firestore, 'fields');
-    }
-    if (userProfile.role === 'FarmManager') {
-        return query(collection(firestore, 'fields'), where('managerId', '==', userProfile.id));
-    }
-    return null;
-  }, [firestore, userProfile]);
-  const { data: fieldsData } = useCollection<FarmField>(fieldsQuery);
-  
-  const workersQuery = useMemoFirebase(() => {
-    if (!firestore || !userProfile) return null;
-
-    // This form is only used by Admins and FarmManagers
-    if (userProfile.role === 'Admin') {
-      return collection(firestore, 'workers');
-    }
-    if (userProfile.role === 'FarmManager') {
-      return query(
-        collection(firestore, 'workers'),
-        where('managerId', '==', userProfile.id)
-      );
-    }
-    return null;
-  }, [firestore, userProfile]);
-  const { data: workersData } = useCollection<Worker>(workersQuery);
-
+  const { data: fieldsData } = useFields();
+  const { data: workersData } = useWorkers();
 
   const handleGenerateDescription = async () => {
     const { cropType, taskType, fieldId } = form.getValues();

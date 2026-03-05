@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -31,6 +30,7 @@ import { useUserProfile } from "@/hooks/use-user-profile"
 import { collection, doc, query, where } from 'firebase/firestore';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { useToast } from "@/hooks/use-toast"
+import { useWorkers, useTasks } from "@/hooks/data/use-operational-data"
 
 const productivitySchema = z.object({
   workerId: z.string().min(1, "Please select a worker."),
@@ -76,48 +76,23 @@ export function ProductivityForm({ entry, onFormSubmit }: ProductivityFormProps)
   })
 
   // Data for form dropdowns
-  const workersQuery = useMemoFirebase(() => {
-    if (!firestore || !userProfile) return null;
-
-    if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
-      return collection(firestore, 'workers');
-    }
-    if (userProfile.role === 'FarmManager') {
-      return query(
-        collection(firestore, 'workers'),
-        where('managerId', '==', userProfile.id)
-      );
-    }
-    // Workers don't need to fetch a list of workers for this form.
-    return null;
-  }, [firestore, userProfile]);
-  const { data: workersData } = useCollection<Worker>(workersQuery);
+  const { data: workersData } = useWorkers();
+  const { data: allTasksData } = useTasks();
 
 
   const selectedWorkerId = form.watch("workerId");
+  
+  const tasksData = React.useMemo(() => {
+    if (!allTasksData || !selectedWorkerId) return [];
+    return allTasksData.filter(task => task.assignedWorkerIds.includes(selectedWorkerId));
+  }, [allTasksData, selectedWorkerId]);
 
-  const tasksQuery = useMemoFirebase(() => {
-    if (!firestore || !selectedWorkerId || !userProfile) return null;
-    
-    const baseQuery = collection(firestore, 'tasks');
-    const workerConstraint = where('assignedWorkerIds', 'array-contains', selectedWorkerId);
-
-    if (userProfile.role === 'FarmManager') {
-        const managerConstraint = where('managerId', '==', userProfile.id);
-        return query(baseQuery, workerConstraint, managerConstraint);
-    }
-
-    // For Admin/Accountant, no manager constraint is needed
-    return query(baseQuery, workerConstraint);
-
-  }, [firestore, selectedWorkerId, userProfile]);
-  const { data: tasksData } = useCollection<FarmTask>(tasksQuery);
 
   const processSubmit = (data: ProductivityFormValues) => {
     if (!firestore || !userProfile) return;
 
     // Find the task to get the fieldId
-    const task = tasksData?.find(t => t.id === data.taskId);
+    const task = allTasksData?.find(t => t.id === data.taskId);
     if (!task) {
         toast({ variant: "destructive", title: "Error", description: "Selected task not found." });
         return;
@@ -177,7 +152,7 @@ export function ProductivityForm({ entry, onFormSubmit }: ProductivityFormProps)
             <FormItem>
                 <FormLabel>Task</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!selectedWorkerId}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select a task" /></SelectTrigger></FormControl>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select a task for the chosen worker" /></SelectTrigger></FormControl>
                     <SelectContent>
                         {tasksData?.map(t => <SelectItem key={t.id} value={t.id!}>{t.taskType} - {t.cropType}</SelectItem>)}
                     </SelectContent>
