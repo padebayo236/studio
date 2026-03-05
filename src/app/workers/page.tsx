@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, updateDoc, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, doc, query, where } from 'firebase/firestore';
 import type { Worker, EmploymentType, WorkerStatus, FarmField } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -67,10 +67,6 @@ export default function WorkersPage() {
     status: 'all',
   });
 
-  const [workersData, setWorkersData] = React.useState<Worker[]>([]);
-  const [isWorkersLoading, setIsWorkersLoading] = React.useState(true);
-  const [error, setError] = React.useState<Error | null>(null);
-
   const workersQuery = useMemoFirebase(() => {
     if (!firestore || !userProfile) return null;
     if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
@@ -82,34 +78,7 @@ export default function WorkersPage() {
     return null;
   }, [firestore, userProfile]);
 
-  React.useEffect(() => {
-    if (isAuthLoading) {
-      return;
-    }
-    if (!workersQuery) {
-        setIsWorkersLoading(false);
-        setWorkersData([]);
-        return;
-    }
-    console.log("App Mounted: Fetching workers...");
-    setIsWorkersLoading(true);
-    const unsubscribe = onSnapshot(workersQuery, 
-      (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Worker));
-        setWorkersData(data);
-        setIsWorkersLoading(false);
-        console.log("Data Loaded: Workers fetched.", data.length);
-      }, 
-      (err) => {
-        setError(err);
-        setIsWorkersLoading(false);
-        console.error("Error fetching workers:", err);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [isAuthLoading, workersQuery]);
-
+  const { data: workersData, isLoading: isWorkersLoading, error } = useCollection<Worker>(workersQuery);
 
   const fieldsRef = useMemoFirebase(() => firestore ? collection(firestore, 'fields') : null, [firestore]);
   const { data: fieldsData } = useCollection<FarmField>(fieldsRef);
@@ -189,12 +158,14 @@ export default function WorkersPage() {
             Add, view, and manage all farm workers.
           </CardDescription>
         </div>
-        <WorkerFormDialog>
-          <Button>
-            <UserPlus className="mr-2" />
-            Add Worker
-          </Button>
-        </WorkerFormDialog>
+        {(userProfile.role === 'Admin' || userProfile.role === 'FarmManager') && (
+            <WorkerFormDialog>
+                <Button>
+                <UserPlus className="mr-2" />
+                Add Worker
+                </Button>
+            </WorkerFormDialog>
+        )}
       </CardHeader>
       <CardContent>
         <div className="mb-4 flex items-center gap-2">

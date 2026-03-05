@@ -58,7 +58,7 @@ export function ProductivityForm({ entry, onFormSubmit }: ProductivityFormProps)
   const { toast } = useToast();
 
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-
+  const [isDatePickerOpen, setIsDatePickerOpen] = React.useState(false);
   const isEditing = !!entry;
 
   const form = useForm<ProductivityFormValues>({
@@ -197,7 +197,7 @@ export function ProductivityForm({ entry, onFormSubmit }: ProductivityFormProps)
             render={({ field }) => (
                 <FormItem className="flex flex-col">
                 <FormLabel>Date of Work</FormLabel>
-                <Popover>
+                <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
                     <PopoverTrigger asChild>
                     <FormControl>
                         <Button
@@ -210,7 +210,15 @@ export function ProductivityForm({ entry, onFormSubmit }: ProductivityFormProps)
                     </FormControl>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                    <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={(date) => {
+                          field.onChange(date);
+                          setIsDatePickerOpen(false);
+                        }}
+                        initialFocus
+                      />
                     </PopoverContent>
                 </Popover>
                 <FormMessage />

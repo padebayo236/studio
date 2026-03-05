@@ -62,7 +62,7 @@ export function TaskForm({ task, onFormSubmit }: TaskFormProps) {
 
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-
+  const [isDatePickerOpen, setIsDatePickerOpen] = React.useState(false);
   const isEditing = !!task;
 
   const form = useForm<TaskFormValues>({
@@ -257,7 +257,7 @@ export function TaskForm({ task, onFormSubmit }: TaskFormProps) {
                 render={({ field }) => (
                     <FormItem className="flex flex-col">
                     <FormLabel>Deadline</FormLabel>
-                    <Popover>
+                    <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
                         <PopoverTrigger asChild>
                         <FormControl>
                             <Button
@@ -270,7 +270,16 @@ export function TaskForm({ task, onFormSubmit }: TaskFormProps) {
                         </FormControl>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date()} initialFocus />
+                        <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={(date) => {
+                                field.onChange(date);
+                                setIsDatePickerOpen(false);
+                            }}
+                            disabled={(date) => date < new Date()}
+                            initialFocus
+                            />
                         </PopoverContent>
                     </Popover>
                     <FormMessage />
