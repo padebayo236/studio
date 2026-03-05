@@ -6,6 +6,7 @@ export interface UserProfile {
   name: string;
   email: string;
   role: UserRole;
+  status: 'active' | 'inactive';
   createdAt: string;
   phoneNumber?: string;
   lastLoginAt?: string;

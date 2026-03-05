@@ -6,14 +6,24 @@ import { StatCard } from '@/components/dashboard/stat-card';
 import {
   Users,
   ClipboardCheck,
-  Tractor,
   DollarSign,
   Award,
   UserCheck,
   Wheat,
+  DatabaseZap,
+  Loader2,
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  getDoc,
+  setDoc,
+  writeBatch,
+} from 'firebase/firestore';
 import {
   format,
   startOfMonth,
@@ -27,7 +37,9 @@ import type {
   ProductivityEntry,
   FarmField,
   MonthlyOutputDataPoint,
+  UserProfile,
 } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 import {
   ChartContainer,
@@ -50,7 +62,8 @@ import {
   LineChart,
   ResponsiveContainer,
 } from 'recharts';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../ui/card';
+import { Button } from '@/components/ui/button';
 
 const laborChartConfig = {
   Maize: { label: 'Maize', color: 'hsl(var(--chart-1))' },
@@ -76,6 +89,10 @@ const monthlyOutputChartConfig = {
 
 export function AdminDashboard() {
   const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const [migrationLog, setMigrationLog] = React.useState<string[]>([]);
+  const [isMigrating, setIsMigrating] = React.useState(false);
 
   // --- DATA FETCHING ---
   const workersRef = useMemoFirebase(
@@ -201,7 +218,6 @@ export function AdminDashboard() {
   const monthlyOutput = React.useMemo((): MonthlyOutputDataPoint[] => {
     if (!productivityData) return [];
     
-    // Aggregate output by month
     const monthlyTotals = productivityData.reduce((acc, entry) => {
         const monthKey = format(new Date(entry.date), 'yyyy-MM');
         if (!acc[monthKey]) {
@@ -213,7 +229,6 @@ export function AdminDashboard() {
         return acc;
     }, {} as Record<string, number>);
 
-    // Generate date range for the last 12 months
     const today = new Date();
     const last12MonthsInterval = {
         start: startOfMonth(new Date(new Date().setMonth(today.getMonth() - 11))),
@@ -228,6 +243,123 @@ export function AdminDashboard() {
         };
     });
 }, [productivityData]);
+
+const handleMigration = async () => {
+  if (!firestore) {
+    toast({
+      title: 'Firestore not available',
+      description: 'Please try again later.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  setIsMigrating(true);
+  setMigrationLog(['Starting worker data synchronization...']);
+  const startTime = Date.now();
+
+  try {
+    const usersRef = collection(firestore, 'users');
+    const workersRef = collection(firestore, 'workers');
+    let usersFixed = 0;
+    let workersFixed = 0;
+    
+    let batch = writeBatch(firestore);
+    let writeCount = 0;
+
+    const commitBatchIfNeeded = async () => {
+      if (writeCount >= 400) {
+        await batch.commit();
+        batch = writeBatch(firestore);
+        writeCount = 0;
+      }
+    };
+
+    setMigrationLog(log => [...log, '[1/2] Checking `users` for FarmWorkers missing a `workers` profile...']);
+    const farmWorkerUsersQuery = query(usersRef, where('role', '==', 'FarmWorker'));
+    const farmWorkerUsersSnapshot = await getDocs(farmWorkerUsersQuery);
+    
+    for (const userDoc of farmWorkerUsersSnapshot.docs) {
+      const user = userDoc.data() as UserProfile;
+      const workerDocRef = doc(workersRef, user.id);
+      const workerDocSnap = await getDoc(workerDocRef);
+
+      if (!workerDocSnap.exists()) {
+        setMigrationLog(log => [...log, `  - FIXING: User ${user.name} (${user.id}) needs a worker profile.`]);
+        const newWorkerProfile: Omit<Worker, 'id'> = {
+          userId: user.id,
+          name: user.name,
+          phone: user.phoneNumber || '',
+          employmentType: 'Not Assigned',
+          age: 18,
+          gender: 'Other',
+          address: '',
+          assignedField: '',
+          wageRate: 0,
+          status: 'Active',
+          managerId: '',
+          photoUrl: `https://picsum.photos/seed/${user.id}/100/100`,
+          photoHint: 'worker portrait',
+          createdAt: user.createdAt,
+        };
+        batch.set(workerDocRef, newWorkerProfile);
+        workersFixed++;
+        writeCount++;
+        await commitBatchIfNeeded();
+      }
+    }
+    setMigrationLog(log => [...log, `[1/2] Complete. Found ${workersFixed} missing worker profiles to create.`]);
+
+    setMigrationLog(log => [...log, '[2/2] Checking `workers` for profiles missing a `users` profile...']);
+    const allWorkersSnapshot = await getDocs(workersRef);
+    for (const workerDoc of allWorkersSnapshot.docs) {
+      const worker = { id: workerDoc.id, ...workerDoc.data() } as Worker;
+      const userDocRef = doc(usersRef, worker.id);
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (!userDocSnap.exists()) {
+        setMigrationLog(log => [...log, `  - FIXING: Worker ${worker.name} (${worker.id}) needs a user profile.`]);
+        const newUserProfile: UserProfile = {
+          id: worker.id,
+          name: worker.name,
+          email: '', // Legacy worker has no email/auth
+          role: 'FarmWorker',
+          status: 'active',
+          phoneNumber: worker.phone || '',
+          createdAt: worker.createdAt,
+        };
+        batch.set(userDocRef, newUserProfile);
+        usersFixed++;
+        writeCount++;
+        await commitBatchIfNeeded();
+      }
+    }
+    setMigrationLog(log => [...log, `[2/2] Complete. Found ${usersFixed} missing user profiles to create.`]);
+    
+    if (writeCount > 0) {
+      await batch.commit();
+    }
+
+    const duration = (Date.now() - startTime) / 1000;
+    setMigrationLog(log => [...log, `--- MIGRATION COMPLETE in ${duration.toFixed(2)}s ---`]);
+    setMigrationLog(log => [...log, `Summary: ${workersFixed} worker profiles created, ${usersFixed} user profiles created.`]);
+
+    toast({
+      title: 'Migration Complete',
+      description: 'Worker data has been synchronized.',
+    });
+
+  } catch (e: any) {
+    setMigrationLog(log => [...log, `ERROR: ${e.message}`]);
+    toast({
+      title: 'Migration Failed',
+      description: e.message,
+      variant: 'destructive',
+    });
+  } finally {
+    setIsMigrating(false);
+  }
+};
 
 
   return (
@@ -389,6 +521,34 @@ export function AdminDashboard() {
             </ChartContainer>
           </CardContent>
         </Card>
+        <div className="pt-4">
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><DatabaseZap /> One-Time Data Migration</CardTitle>
+                <CardDescription>
+                Run this script to synchronize legacy `users` and `workers` data. This should only be run once.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button onClick={handleMigration} disabled={isMigrating}>
+                {isMigrating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Run Worker Sync
+                </Button>
+            </CardContent>
+            {migrationLog.length > 0 && (
+                <CardFooter>
+                <div className="w-full space-y-2">
+                    <p className="font-semibold text-sm">Migration Log:</p>
+                    <div className="w-full h-40 overflow-y-auto bg-muted p-3 rounded-md border text-xs font-mono">
+                    {migrationLog.map((log, index) => (
+                        <p key={index}>{log}</p>
+                    ))}
+                    </div>
+                </div>
+                </CardFooter>
+            )}
+            </Card>
+        </div>
     </div>
   );
 }
