@@ -29,7 +29,8 @@ import {
   Download,
   Sparkles
 } from 'lucide-react';
-import { DateRangePicker } from '@/components/date-range-picker';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { generateProductivityInsightsAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -41,7 +42,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { DateRange } from 'react-day-picker';
 
 export default function ReportsPage() {
     const { userProfile, isLoading: isAuthLoading } = useUserProfile();
@@ -50,7 +50,8 @@ export default function ReportsPage() {
     const { toast } = useToast();
 
     const [reportType, setReportType] = React.useState('monthlyProductivity');
-    const [dateRange, setDateRange] = React.useState<DateRange | undefined>(undefined);
+    const [startDate, setStartDate] = React.useState<string>('');
+    const [endDate, setEndDate] = React.useState<string>('');
     const [isLoading, setIsLoading] = React.useState(false);
     const [reportData, setReportData] = React.useState<any>(null);
     const [aiInsights, setAiInsights] = React.useState<any>(null);
@@ -84,7 +85,7 @@ export default function ReportsPage() {
         setIsLoading(true);
         setReportData(null);
         // In a real implementation, this would fetch and process data based on reportType and filters
-        console.log('Generating report for:', { reportType, dateRange });
+        console.log('Generating report for:', { reportType, startDate, endDate });
         
         // Placeholder for report generation logic
         await new Promise(resolve => setTimeout(resolve, 1500));
@@ -148,7 +149,14 @@ export default function ReportsPage() {
                         </SelectContent>
                     </Select>
                     
-                    <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+                    <div className="space-y-1">
+                        <Label>Date Range</Label>
+                        <div className="flex items-center gap-2">
+                            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="text-sm" />
+                            <span className="text-muted-foreground">-</span>
+                            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="text-sm"/>
+                        </div>
+                    </div>
 
                     <Button onClick={handleGenerateReport} disabled={isLoading}>
                         {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}

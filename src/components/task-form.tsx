@@ -23,7 +23,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Sparkles, Loader2 } from "lucide-react"
-import { DatePicker } from "@/components/ui/date-picker"
+import { format } from "date-fns"
 import { generateTaskDescriptionAction } from "@/app/actions"
 import type { FarmTask, CropType, TaskType, FarmField, Worker } from "@/lib/types"
 import { useFirestore } from "@/firebase"
@@ -38,7 +38,7 @@ const taskSchema = z.object({
   cropType: z.string({ required_error: "Please select a crop type." }),
   fieldId: z.string().min(1, "Field name is required."),
   description: z.string().min(10, "Description must be at least 10 characters."),
-  deadline: z.date({ required_error: "A deadline is required." }),
+  deadline: z.string().min(1, "A deadline is required."),
   expectedOutput: z.coerce.number().min(1, "Expected output must be at least 1."),
   expectedOutputUnit: z.string().min(1, "Unit is required, e.g., kg, acres."),
   assignedWorkerIds: z.array(z.string()).min(1, "Assign at least one worker."),
@@ -65,14 +65,14 @@ export function TaskForm({ task, onFormSubmit }: TaskFormProps) {
     defaultValues: isEditing
       ? {
           ...task,
-          deadline: new Date(task.deadline),
+          deadline: format(new Date(task.deadline), "yyyy-MM-dd"),
         }
       : {
           taskType: undefined,
           cropType: undefined,
           fieldId: undefined,
           description: "",
-          deadline: undefined,
+          deadline: "",
           expectedOutput: 0,
           expectedOutputUnit: 'kg',
           assignedWorkerIds: [],
@@ -113,7 +113,7 @@ export function TaskForm({ task, onFormSubmit }: TaskFormProps) {
     
     const taskData = {
         ...data,
-        deadline: data.deadline.toISOString(),
+        deadline: data.deadline,
         managerId: userProfile.id,
         status: task?.status || 'Pending',
     };
@@ -226,11 +226,11 @@ export function TaskForm({ task, onFormSubmit }: TaskFormProps) {
                 <FormItem className="flex flex-col">
                   <FormLabel>Deadline</FormLabel>
                   <FormControl>
-                    <DatePicker
-                      value={field.value}
-                      onChange={field.onChange}
-                      disabledDate={(date) => date < new Date()}
-                    />
+                    <Input 
+                       type="date" 
+                       {...field} 
+                       min={new Date().toISOString().split('T')[0]}
+                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

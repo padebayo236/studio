@@ -23,7 +23,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Loader2 } from "lucide-react"
-import { DatePicker } from "@/components/ui/date-picker"
+import { format } from "date-fns"
 import type { ProductivityEntry, FarmField, Worker, FarmTask } from "@/lib/types"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { useUserProfile } from "@/hooks/use-user-profile"
@@ -35,7 +35,7 @@ import { useWorkers, useTasks } from "@/hooks/data/use-operational-data"
 const productivitySchema = z.object({
   workerId: z.string().min(1, "Please select a worker."),
   taskId: z.string().min(1, "Please select a task."),
-  date: z.date({ required_error: "A date is required." }),
+  date: z.string().min(1, "A date is required."),
   outputQuantity: z.coerce.number().min(0, "Output must be a positive number."),
   outputUnit: z.string().min(1, "Unit is required, e.g., kg, acres."),
   hoursWorkedForEntry: z.coerce.number().min(0.1, "Hours worked must be greater than 0."),
@@ -62,12 +62,12 @@ export function ProductivityForm({ entry, onFormSubmit }: ProductivityFormProps)
     defaultValues: isEditing
       ? {
           ...entry,
-          date: new Date(entry.date),
+          date: format(new Date(entry.date), 'yyyy-MM-dd'),
         }
       : {
           workerId: userProfile?.role === 'FarmWorker' ? user?.uid : undefined,
           taskId: undefined,
-          date: new Date(),
+          date: format(new Date(), 'yyyy-MM-dd'),
           outputQuantity: 0,
           outputUnit: 'kg',
           hoursWorkedForEntry: 0,
@@ -103,7 +103,7 @@ export function ProductivityForm({ entry, onFormSubmit }: ProductivityFormProps)
     const entryData = {
         ...data,
         fieldId: task.fieldId, // Get fieldId from the selected task
-        date: data.date.toISOString().split('T')[0], // "YYYY-MM-DD"
+        date: data.date,
     };
 
     if (isEditing) {
@@ -169,7 +169,7 @@ export function ProductivityForm({ entry, onFormSubmit }: ProductivityFormProps)
             <FormItem className="flex flex-col">
               <FormLabel>Date of Work</FormLabel>
               <FormControl>
-                <DatePicker value={field.value} onChange={field.onChange} />
+                <Input type="date" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
