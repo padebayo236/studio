@@ -88,7 +88,7 @@
         "employmentType": {
           "type": "string",
           "description": "The employment type of the worker.",
-          "enum": ["Permanent", "Seasonal", "Daily Wage"]
+          "enum": ["Permanent", "Seasonal", "Daily Wage", "Not Assigned"]
         },
         "wageRate": {
           "type": "number",

@@ -24,12 +24,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, writeBatch } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
+import type { UserProfile, Worker } from '@/lib/types';
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'Please enter your name.' }),
@@ -69,23 +70,48 @@ export function SignUpForm() {
             displayName: data.name
         });
 
-        // Create main user profile
+        const batch = writeBatch(firestore);
+
+        // 1. Create main user profile in 'users' collection
         const userProfileRef = doc(firestore, 'users', userId);
-        const profileData = {
+        const profileData: UserProfile = {
             id: userId,
             name: data.name,
             email: data.email,
-            role: data.role,
+            role: data.role as UserProfile['role'],
             status: 'active',
             createdAt: new Date().toISOString(),
         };
+        batch.set(userProfileRef, profileData);
 
-        setDoc(userProfileRef, profileData)
-          .catch((serverError) => {
+        // 2. If user is a worker, create a profile in 'workers' collection
+        if (data.role === 'FarmWorker') {
+            const workerDocRef = doc(firestore, 'workers', userId);
+            const workerProfileData: Omit<Worker, 'id'> = {
+                userId: userId,
+                name: data.name,
+                phone: '',
+                age: 0,
+                gender: 'Other',
+                address: '',
+                employmentType: 'Not Assigned',
+                wageRate: 0,
+                assignedField: '',
+                status: 'Active',
+                managerId: '',
+                photoUrl: `https://picsum.photos/seed/${userId}/100/100`,
+                photoHint: 'worker portrait',
+                createdAt: new Date().toISOString(),
+            };
+            batch.set(workerDocRef, workerProfileData);
+        }
+
+        // Atomically commit both writes
+        await batch.commit().catch((serverError) => {
             const permissionError = new FirestorePermissionError({
-              path: userProfileRef.path,
+              path: `batch write for user ${userId}`,
               operation: 'create',
-              requestResourceData: profileData,
+              requestResourceData: { user: profileData },
             });
             errorEmitter.emit('permission-error', permissionError);
           });
@@ -202,5 +228,3 @@ export function SignUpForm() {
     </Form>
   );
 }
-
-    

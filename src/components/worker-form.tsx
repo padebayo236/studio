@@ -25,30 +25,33 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type {
   Worker,
-  EmploymentType,
-  WorkerStatus,
   FarmField,
+  UserProfile,
 } from '@/lib/types';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { firebaseConfig } from '@/firebase/config';
 import { useUserProfile } from '@/hooks/use-user-profile';
-import { collection, doc, query, where } from 'firebase/firestore';
+import { collection, doc, query, where, writeBatch } from 'firebase/firestore';
 import {
-  addDocumentNonBlocking,
   updateDocumentNonBlocking,
 } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import { initializeApp, deleteApp } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 
 const workerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
+  email: z.string().email('Please enter a valid email.').optional(),
+  password: z.string().min(8, 'Password must be at least 8 characters.').optional(),
   age: z.coerce.number().int().min(16, 'Worker must be at least 16 years old.'),
   gender: z.enum(['Male', 'Female', 'Other']),
   phone: z.string().min(10, 'Please enter a valid phone number.'),
   address: z.string().min(5, 'Please enter a valid address.'),
-  employmentType: z.enum(['Permanent', 'Seasonal', 'Daily Wage']),
+  employmentType: z.enum(['Permanent', 'Seasonal', 'Daily Wage', 'Not Assigned']),
   wageRate: z.coerce.number().min(0, 'Wage rate cannot be negative.'),
-  assignedField: z.string().min(1, 'Please assign a field.'),
+  assignedField: z.string().min(1, 'Please assign a field.').or(z.literal('')),
   status: z.enum(['Active', 'Inactive']),
   photoUrl: z
     .string()
@@ -79,6 +82,8 @@ export function WorkerForm({ worker, onFormSubmit }: WorkerFormProps) {
         }
       : {
           name: '',
+          email: '',
+          password: '',
           age: 18,
           gender: 'Male',
           phone: '',
@@ -111,52 +116,100 @@ export function WorkerForm({ worker, onFormSubmit }: WorkerFormProps) {
 
   const processSubmit = async (data: WorkerFormValues) => {
     if (!firestore || !userProfile) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Firestore is not available.',
-      });
+      toast({ variant: 'destructive', title: 'Error', description: 'User profile not found.' });
       return;
     }
     setIsLoading(true);
 
-    const workersCollection = collection(firestore, 'workers');
-    const managerId = userProfile.id;
+    if (isEditing) {
+      const workerDoc = doc(firestore, 'workers', worker.id);
+      const updatedData = { ...data };
+      delete (updatedData as any).email; // Do not update email/password on edit
+      delete (updatedData as any).password;
+      updateDocumentNonBlocking(workerDoc, updatedData);
+      toast({
+        title: 'Success',
+        description: 'Worker profile updated.',
+      });
+      setIsLoading(false);
+      onFormSubmit();
+      return;
+    }
+
+    // --- Create New Worker Flow ---
+    if (!data.email || !data.password) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Email and password are required to create a new worker account.' });
+      setIsLoading(false);
+      return;
+    }
+
+    const tempApp = initializeApp(firebaseConfig, `worker-creation-${uuidv4()}`);
+    const tempAuth = getAuth(tempApp);
 
     try {
-      if (isEditing) {
-        const workerDoc = doc(workersCollection, worker.id);
-        const updatedData = { ...data };
-        updateDocumentNonBlocking(workerDoc, updatedData);
-        toast({
-          title: 'Success',
-          description: 'Worker profile updated.',
-        });
-      } else {
-        const newWorker: any = {
-          ...data,
-          managerId,
-          createdAt: new Date().toISOString(),
-          photoHint: 'worker portrait',
-          photoUrl:
-            data.photoUrl ||
-            `https://picsum.photos/seed/${Math.random()}/100/100`,
-        };
-        addDocumentNonBlocking(workersCollection, newWorker);
-        toast({
-          title: 'Success',
-          description: 'New worker created.',
-        });
-      }
+      // 1. Create Firebase Auth user
+      const userCredential = await createUserWithEmailAndPassword(tempAuth, data.email, data.password);
+      const newUserId = userCredential.user.uid;
+
+      const batch = writeBatch(firestore);
+
+      // 2. Create user document in 'users' collection
+      const userDocRef = doc(firestore, 'users', newUserId);
+      const newUserProfile: UserProfile = {
+        id: newUserId,
+        name: data.name,
+        email: data.email,
+        role: 'FarmWorker',
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        phoneNumber: data.phone,
+      };
+      batch.set(userDocRef, newUserProfile);
+
+      // 3. Create worker document in 'workers' collection
+      const workerDocRef = doc(firestore, 'workers', newUserId);
+      const newWorkerData: Omit<Worker, 'id'> = {
+        userId: newUserId,
+        name: data.name,
+        age: data.age,
+        gender: data.gender,
+        phone: data.phone,
+        address: data.address,
+        assignedField: data.assignedField,
+        employmentType: data.employmentType,
+        wageRate: data.wageRate,
+        status: data.status,
+        photoUrl: data.photoUrl || `https://picsum.photos/seed/${newUserId}/100/100`,
+        photoHint: 'worker portrait',
+        managerId: userProfile.id,
+        createdAt: new Date().toISOString(),
+      };
+      batch.set(workerDocRef, newWorkerData);
+
+      // 4. Atomically commit all writes
+      await batch.commit();
+
+      toast({
+        title: 'Success',
+        description: 'New worker account and profile created.',
+      });
       onFormSubmit();
-    } catch (error) {
-      console.error('Failed to save worker', error);
+
+    } catch (error: any) {
+      console.error('Failed to create worker and auth user:', error);
+      let description = 'An unexpected error occurred.';
+      if (error.code === 'auth/email-already-in-use') {
+        description = 'This email is already in use by another account.';
+      }
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to save worker profile.',
+        title: 'Creation Failed',
+        description,
       });
     } finally {
+      // 5. Clean up the temporary Firebase instance
+      await signOut(tempAuth);
+      await deleteApp(tempApp);
       setIsLoading(false);
     }
   };
@@ -164,6 +217,14 @@ export function WorkerForm({ worker, onFormSubmit }: WorkerFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(processSubmit)} className="space-y-4">
+        
+        {!isEditing && (
+          <div className="p-4 border-l-4 border-accent bg-accent/10 rounded-r-lg">
+             <p className="text-sm font-semibold text-accent-foreground/80">You are creating a new user account.</p>
+             <p className="text-xs text-muted-foreground">An email and password are required for the worker to log in.</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -192,6 +253,38 @@ export function WorkerForm({ worker, onFormSubmit }: WorkerFormProps) {
             )}
           />
         </div>
+
+        {!isEditing && (
+            <>
+                <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Worker's Email</FormLabel>
+                        <FormControl>
+                        <Input type="email" placeholder="worker@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Temporary Password</FormLabel>
+                        <FormControl>
+                        <Input type="password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+            </>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -267,6 +360,7 @@ export function WorkerForm({ worker, onFormSubmit }: WorkerFormProps) {
                     <SelectItem value="Permanent">Permanent</SelectItem>
                     <SelectItem value="Seasonal">Seasonal</SelectItem>
                     <SelectItem value="Daily Wage">Daily Wage</SelectItem>
+                    <SelectItem value="Not Assigned">Not Assigned</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />

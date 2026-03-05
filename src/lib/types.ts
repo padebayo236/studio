@@ -12,7 +12,7 @@ export interface UserProfile {
   assignedFieldIds?: string[];
 }
 
-export type EmploymentType = 'Permanent' | 'Seasonal' | 'Daily Wage';
+export type EmploymentType = 'Permanent' | 'Seasonal' | 'Daily Wage' | 'Not Assigned';
 export type WorkerStatus = 'Active' | 'Inactive';
 
 export interface Worker {
@@ -30,6 +30,7 @@ export interface Worker {
   photoUrl: string;
   photoHint: string;
   managerId: string;
+  createdAt: string;
 }
 
 export interface AttendanceRecord {
