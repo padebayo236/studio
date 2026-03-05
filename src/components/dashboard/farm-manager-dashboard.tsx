@@ -11,16 +11,10 @@ import {
   ClipboardCheck,
 } from 'lucide-react';
 import { useUserProfile } from '@/hooks/use-user-profile';
-import { useFirestore } from '@/firebase';
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  DocumentData,
-} from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
 import { format } from 'date-fns';
-import type { FarmTask, Worker, ProductivityEntry } from '@/lib/types';
+import type { FarmTask, Worker, ProductivityEntry, AttendanceRecord } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
@@ -42,126 +36,78 @@ export function FarmManagerDashboard() {
   const { userProfile } = useUserProfile();
   const firestore = useFirestore();
   
-  const [stats, setStats] = React.useState({
-    presentWorkers: 0,
-    totalWorkers: 0,
-    absentWorkers: 0,
-    activeTasks: 0,
-    completedTasks: 0,
-    todaysOutput: 0,
-  });
+  // --- DATA FETCHING (mirroring Admin Dashboard's scope) ---
+  const workersRef = useMemoFirebase(() => firestore ? collection(firestore, 'workers') : null, [firestore]);
+  const { data: workersData, isLoading: isWorkersLoading } = useCollection<Worker>(workersRef);
 
-  const [taskStatusData, setTaskStatusData] = React.useState<any[]>([]);
-  const [workerProductivity, setWorkerProductivity] = React.useState<any[]>([]);
+  const tasksRef = useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]);
+  const { data: tasksData, isLoading: isTasksLoading } = useCollection<FarmTask>(tasksRef);
+  
+  const todaysProductivityQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    return query(collection(firestore, 'productivity'), where('date', '==', todayStr));
+  }, [firestore]);
+  const { data: todaysProductivity, isLoading: isProductivityLoading } = useCollection<ProductivityEntry>(todaysProductivityQuery);
 
-  const [isLoading, setIsLoading] = React.useState(true);
+  const todaysAttendanceQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    return query(collection(firestore, 'attendance'), where('date', '==', todayStr));
+  }, [firestore]);
+  const { data: todaysAttendance, isLoading: isAttendanceLoading } = useCollection<AttendanceRecord>(todaysAttendanceQuery);
 
-  React.useEffect(() => {
-    if (!userProfile || !firestore || userProfile.role !== 'FarmManager') {
-      setIsLoading(false);
-      return;
-    };
+  // --- KPI & CHART CALCULATIONS ---
+  const isLoading = isWorkersLoading || isTasksLoading || isProductivityLoading || isAttendanceLoading;
 
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const todayStr = format(new Date(), 'yyyy-MM-dd');
-
-        // 1. Get workers managed by this manager
-        const workersQuery = query(
-          collection(firestore, 'workers'),
-          where('managerId', '==', userProfile.id)
-        );
-        const workersSnapshot = await getDocs(workersQuery);
-        const managedWorkers = workersSnapshot.docs.map(
-          (doc) => ({ id: doc.id, ...(doc.data() as Worker) })
-        );
-        const workerIds = managedWorkers.map((w) => w.id);
-        const workerMap = new Map(managedWorkers.map(w => [w.id, w.name]));
-        const totalWorkers = managedWorkers.length;
-
-        // 2. Get attendance for today (with chunking)
-        let presentWorkers = 0;
-        if (workerIds.length > 0) {
-            const attendanceChunks: DocumentData[] = [];
-            for (let i = 0; i < workerIds.length; i += 30) {
-                const chunk = workerIds.slice(i, i + 30);
-                const attendanceQuery = query(
-                    collection(firestore, 'attendance'),
-                    where('workerId', 'in', chunk),
-                    where('date', '==', todayStr)
-                );
-                const attendanceSnapshot = await getDocs(attendanceQuery);
-                attendanceSnapshot.forEach(doc => attendanceChunks.push(doc.data()));
-            }
-            presentWorkers = attendanceChunks.length;
+  const stats = React.useMemo(() => {
+    const totalWorkers = workersData?.length ?? 0;
+    const presentWorkers = todaysAttendance?.length ?? 0;
+    const absentWorkers = totalWorkers > 0 ? totalWorkers - presentWorkers : 0;
+    const activeTasks = tasksData?.filter(t => t.status === 'Pending' || t.status === 'In Progress').length ?? 0;
+    const completedTasks = tasksData?.filter(t => t.status === 'Completed').length ?? 0;
+    const todaysOutput = todaysProductivity?.reduce((acc, entry) => {
+        // Simple unit check, a real app might need conversion
+        if (entry.outputUnit.toLowerCase() === 'kg') {
+           return acc + (entry.outputQuantity || 0);
         }
+        return acc;
+    }, 0) ?? 0;
 
-        // 3. Get tasks
-        const tasksQuery = query(
-          collection(firestore, 'tasks'),
-          where('managerId', '==', userProfile.id)
-        );
-        const tasksSnapshot = await getDocs(tasksQuery);
-        const managedTasks = tasksSnapshot.docs.map(
-          (doc) => doc.data() as FarmTask
-        );
-        
-        const activeTasks = managedTasks.filter(
-          (t) => t.status === 'Pending' || t.status === 'In Progress'
-        ).length;
-        const completedTasks = managedTasks.filter(
-          (t) => t.status === 'Completed'
-        ).length;
-
-        const taskStatusCounts = managedTasks.reduce((acc, task) => {
-            acc[task.status] = (acc[task.status] || 0) + 1;
-            return acc;
-        }, {} as Record<FarmTask['status'], number>);
-        setTaskStatusData(Object.entries(taskStatusCounts).map(([status, count]) => ({ name: status, value: count, fill: `var(--color-${status.replace(' ', '')})` })));
-        
-        // 4. Get Productivity (with chunking)
-        let todaysOutput = 0;
-        let productivityTotals: Record<string, number> = {};
-        if (workerIds.length > 0) {
-            for (let i = 0; i < workerIds.length; i += 30) {
-                const chunk = workerIds.slice(i, i + 30);
-                const productivityQuery = query(
-                    collection(firestore, 'productivity'),
-                    where('workerId', 'in', chunk),
-                    where('date', '==', todayStr)
-                );
-                const productivitySnapshot = await getDocs(productivityQuery);
-                productivitySnapshot.forEach(doc => {
-                    const entry = doc.data() as ProductivityEntry;
-                     if (entry.outputUnit.toLowerCase() === 'kg') {
-                       todaysOutput += entry.outputQuantity;
-                       const workerName = workerMap.get(entry.workerId) || 'Unknown';
-                       productivityTotals[workerName] = (productivityTotals[workerName] || 0) + entry.outputQuantity;
-                    }
-                });
-            }
-        }
-        setWorkerProductivity(Object.entries(productivityTotals).map(([name, output]) => ({ name, output })));
-
-        setStats({
-          presentWorkers,
-          totalWorkers,
-          absentWorkers: totalWorkers - presentWorkers,
-          activeTasks,
-          completedTasks,
-          todaysOutput
-        });
-
-      } catch (error) {
-        console.error('Error fetching manager dashboard data:', error);
-      } finally {
-        setIsLoading(false);
-      }
+    return {
+      presentWorkers,
+      totalWorkers,
+      absentWorkers,
+      activeTasks,
+      completedTasks,
+      todaysOutput
     };
+  }, [workersData, tasksData, todaysProductivity, todaysAttendance]);
 
-    fetchData();
-  }, [userProfile, firestore]);
+
+  const taskStatusData = React.useMemo(() => {
+    if (!tasksData) return [];
+    const statusCounts = tasksData.reduce((acc, task) => {
+        acc[task.status] = (acc[task.status] || 0) + 1;
+        return acc;
+    }, {} as Record<FarmTask['status'], number>);
+    return Object.entries(statusCounts).map(([status, count]) => ({ name: status, value: count }));
+  }, [tasksData]);
+
+  const workerProductivity = React.useMemo(() => {
+    if (!todaysProductivity || !workersData) return [];
+    const workerMap = new Map(workersData.map(w => [w.id, w.name]));
+    const productivityTotals: Record<string, number> = {};
+
+    todaysProductivity.forEach(entry => {
+        if (entry.outputUnit.toLowerCase() === 'kg') {
+            const workerName = workerMap.get(entry.workerId) || 'Unknown Worker';
+            productivityTotals[workerName] = (productivityTotals[workerName] || 0) + entry.outputQuantity;
+        }
+    });
+    return Object.entries(productivityTotals).map(([name, output]) => ({ name, output })).sort((a,b) => b.output - a.output);
+  }, [todaysProductivity, workersData]);
+  
   
   if (isLoading) {
     return (
@@ -174,7 +120,7 @@ export function FarmManagerDashboard() {
   return (
     <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-            <StatCard title="Workers Present" value={String(stats.presentWorkers)} icon={UserCheck} description="Managed workers clocked in today" />
+            <StatCard title="Workers Present" value={String(stats.presentWorkers)} icon={UserCheck} description="Workers clocked in today" />
             <StatCard title="Workers Absent" value={String(stats.absentWorkers)} icon={UserX} description="Workers not clocked in today" />
             <StatCard title="Active Tasks" value={String(stats.activeTasks)} icon={ClipboardList} description="Tasks in progress or pending" />
             <StatCard title="Completed Tasks" value={String(stats.completedTasks)} icon={ClipboardCheck} description="Total tasks completed" />
