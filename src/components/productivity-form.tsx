@@ -23,11 +23,8 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, Loader2 } from "lucide-react"
-import { Calendar } from "@/components/ui/calendar"
-import { cn } from "@/lib/utils"
-import { format } from "date-fns"
+import { Loader2 } from "lucide-react"
+import { DatePicker } from "@/components/ui/date-picker"
 import type { ProductivityEntry, FarmField, Worker, FarmTask } from "@/lib/types"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { useUserProfile } from "@/hooks/use-user-profile"
@@ -58,7 +55,6 @@ export function ProductivityForm({ entry, onFormSubmit }: ProductivityFormProps)
   const { toast } = useToast();
 
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [isDatePickerOpen, setIsDatePickerOpen] = React.useState(false);
   const isEditing = !!entry;
 
   const form = useForm<ProductivityFormValues>({
@@ -192,38 +188,17 @@ export function ProductivityForm({ entry, onFormSubmit }: ProductivityFormProps)
         />
         
         <FormField
-            control={form.control}
-            name="date"
-            render={({ field }) => (
-                <FormItem className="flex flex-col">
-                <FormLabel>Date of Work</FormLabel>
-                <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
-                    <PopoverTrigger asChild>
-                    <FormControl>
-                        <Button
-                        variant={"outline"}
-                        className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
-                        >
-                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                    </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={(date) => {
-                          field.onChange(date);
-                          setIsDatePickerOpen(false);
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                </Popover>
-                <FormMessage />
-                </FormItem>
-            )}
+          control={form.control}
+          name="date"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>Date of Work</FormLabel>
+              <FormControl>
+                <DatePicker value={field.value} onChange={field.onChange} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
 
         <div className="grid grid-cols-2 gap-4">
