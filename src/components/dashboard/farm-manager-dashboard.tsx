@@ -6,17 +6,18 @@ import {
   Users,
   ClipboardList,
   UserCheck,
-  AlertTriangle,
   Tractor,
   UserX,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useUserProfile } from '@/hooks/use-user-profile';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import {
   collection,
   query,
   where,
   getDocs,
+  DocumentData,
 } from 'firebase/firestore';
 import { format } from 'date-fns';
 import type { FarmTask, Worker, ProductivityEntry } from '@/lib/types';
@@ -46,7 +47,7 @@ export function FarmManagerDashboard() {
     totalWorkers: 0,
     absentWorkers: 0,
     activeTasks: 0,
-    overdueTasks: 0,
+    completedTasks: 0,
     todaysOutput: 0,
   });
 
@@ -79,16 +80,21 @@ export function FarmManagerDashboard() {
         const workerMap = new Map(managedWorkers.map(w => [w.id, w.name]));
         const totalWorkers = managedWorkers.length;
 
-        // 2. Get attendance for today
+        // 2. Get attendance for today (with chunking)
         let presentWorkers = 0;
         if (workerIds.length > 0) {
-          const attendanceQuery = query(
-            collection(firestore, 'attendance'),
-            where('workerId', 'in', workerIds.slice(0,30)),
-            where('date', '==', todayStr)
-          );
-          const attendanceSnapshot = await getDocs(attendanceQuery);
-          presentWorkers = attendanceSnapshot.size;
+            const attendanceChunks: DocumentData[] = [];
+            for (let i = 0; i < workerIds.length; i += 30) {
+                const chunk = workerIds.slice(i, i + 30);
+                const attendanceQuery = query(
+                    collection(firestore, 'attendance'),
+                    where('workerId', 'in', chunk),
+                    where('date', '==', todayStr)
+                );
+                const attendanceSnapshot = await getDocs(attendanceQuery);
+                attendanceSnapshot.forEach(doc => attendanceChunks.push(doc.data()));
+            }
+            presentWorkers = attendanceChunks.length;
         }
 
         // 3. Get tasks
@@ -104,8 +110,8 @@ export function FarmManagerDashboard() {
         const activeTasks = managedTasks.filter(
           (t) => t.status === 'Pending' || t.status === 'In Progress'
         ).length;
-        const overdueTasks = managedTasks.filter(
-          (t) => t.status !== 'Completed' && new Date(t.deadline) < new Date()
+        const completedTasks = managedTasks.filter(
+          (t) => t.status === 'Completed'
         ).length;
 
         const taskStatusCounts = managedTasks.reduce((acc, task) => {
@@ -114,22 +120,27 @@ export function FarmManagerDashboard() {
         }, {} as Record<FarmTask['status'], number>);
         setTaskStatusData(Object.entries(taskStatusCounts).map(([status, count]) => ({ name: status, value: count, fill: `var(--color-${status.replace(' ', '')})` })));
         
-        // 4. Get Productivity
+        // 4. Get Productivity (with chunking)
         let todaysOutput = 0;
         let productivityTotals: Record<string, number> = {};
         if (workerIds.length > 0) {
-            const productivityQuery = query(
-                collection(firestore, 'productivity'),
-                where('workerId', 'in', workerIds.slice(0, 30)),
-                where('date', '==', todayStr)
-            );
-            const productivitySnapshot = await getDocs(productivityQuery);
-            productivitySnapshot.forEach(doc => {
-                const entry = doc.data() as ProductivityEntry;
-                todaysOutput += entry.outputQuantity;
-                const workerName = workerMap.get(entry.workerId) || 'Unknown';
-                productivityTotals[workerName] = (productivityTotals[workerName] || 0) + entry.outputQuantity;
-            });
+            for (let i = 0; i < workerIds.length; i += 30) {
+                const chunk = workerIds.slice(i, i + 30);
+                const productivityQuery = query(
+                    collection(firestore, 'productivity'),
+                    where('workerId', 'in', chunk),
+                    where('date', '==', todayStr)
+                );
+                const productivitySnapshot = await getDocs(productivityQuery);
+                productivitySnapshot.forEach(doc => {
+                    const entry = doc.data() as ProductivityEntry;
+                     if (entry.outputUnit.toLowerCase() === 'kg') {
+                       todaysOutput += entry.outputQuantity;
+                       const workerName = workerMap.get(entry.workerId) || 'Unknown';
+                       productivityTotals[workerName] = (productivityTotals[workerName] || 0) + entry.outputQuantity;
+                    }
+                });
+            }
         }
         setWorkerProductivity(Object.entries(productivityTotals).map(([name, output]) => ({ name, output })));
 
@@ -138,7 +149,7 @@ export function FarmManagerDashboard() {
           totalWorkers,
           absentWorkers: totalWorkers - presentWorkers,
           activeTasks,
-          overdueTasks,
+          completedTasks,
           todaysOutput
         });
 
@@ -163,11 +174,11 @@ export function FarmManagerDashboard() {
   return (
     <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-            <StatCard title="My Workers" value={String(stats.totalWorkers)} icon={Users} description="Total workers you manage" />
             <StatCard title="Workers Present" value={String(stats.presentWorkers)} icon={UserCheck} description="Managed workers clocked in today" />
             <StatCard title="Workers Absent" value={String(stats.absentWorkers)} icon={UserX} description="Workers not clocked in today" />
             <StatCard title="Active Tasks" value={String(stats.activeTasks)} icon={ClipboardList} description="Tasks in progress or pending" />
-            <StatCard title="Today's Output" value={`${stats.todaysOutput} kg`} icon={Tractor} description="Total output recorded today" />
+            <StatCard title="Completed Tasks" value={String(stats.completedTasks)} icon={ClipboardCheck} description="Total tasks completed" />
+            <StatCard title="Today's Output" value={`${stats.todaysOutput.toFixed(0)} kg`} icon={Tractor} description="Total output recorded today" />
         </div>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <Card className="lg:col-span-2">
@@ -200,9 +211,12 @@ export function FarmManagerDashboard() {
                             <PieChart>
                                 <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
                                 <Pie data={taskStatusData} dataKey="value" nameKey="name" innerRadius={60} strokeWidth={5}>
-                                    {taskStatusData.map((entry) => (
-                                        <Cell key={`cell-${entry.name}`} fill={entry.fill} />
-                                    ))}
+                                    {taskStatusData.map((entry) => {
+                                        const configColor = taskChartConfig[entry.name as keyof typeof taskChartConfig]?.color;
+                                        return (
+                                            <Cell key={`cell-${entry.name}`} fill={configColor || 'hsl(var(--muted))'} />
+                                        )
+                                    })}
                                 </Pie>
                                 <ChartLegend content={<ChartLegendContent nameKey="name" />} className="[&>*]:justify-center" />
                             </PieChart>

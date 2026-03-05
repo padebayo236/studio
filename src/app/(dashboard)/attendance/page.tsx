@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useFirestore } from '@/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, DocumentData } from 'firebase/firestore';
 import type { Worker } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -61,30 +61,30 @@ export default function AttendancePage() {
         setWorkerNameMap(nameMap);
 
         // 2. Fetch attendance based on role
-        let attendanceQuery;
+        let fetchedRecords: DocumentData[] = [];
         if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
-          attendanceQuery = query(collection(firestore, 'attendance'));
+          const attendanceQuery = query(collection(firestore, 'attendance'));
+          const querySnapshot = await getDocs(attendanceQuery);
+          fetchedRecords = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
         } else if (userProfile.role === 'FarmManager') {
            const managedWorkersQuery = query(collection(firestore, 'workers'), where('managerId', '==', userProfile.id));
            const managedWorkersSnapshot = await getDocs(managedWorkersQuery);
            const workerIds = managedWorkersSnapshot.docs.map(doc => doc.id);
            
-           if (workerIds.length === 0) {
-             setRecords([]);
-             setIsDataLoading(false);
-             return;
+           if (workerIds.length > 0) {
+             // Firestore 'in' queries are limited to 30 items. Chunk the array.
+             for (let i = 0; i < workerIds.length; i += 30) {
+               const chunk = workerIds.slice(i, i + 30);
+               const q = query(collection(firestore, 'attendance'), where('workerId', 'in', chunk));
+               const snapshot = await getDocs(q);
+               snapshot.docs.forEach(doc => fetchedRecords.push({ id: doc.id, ...doc.data() }));
+             }
            }
-           attendanceQuery = query(collection(firestore, 'attendance'), where('workerId', 'in', workerIds.slice(0, 30)));
-        } else {
-            setIsDataLoading(false);
-            return;
         }
-
-        const querySnapshot = await getDocs(attendanceQuery);
-        const fetchedRecords = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        
         setRecords(fetchedRecords);
       } catch (e: any) {
         setError(e);
@@ -180,4 +180,3 @@ export default function AttendancePage() {
     </Card>
   );
 }
-
