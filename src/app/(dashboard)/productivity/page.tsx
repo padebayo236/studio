@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useFirestore, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import type { ProductivityEntry, Worker, FarmField, FarmTask } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -66,83 +66,42 @@ export default function ProductivityPage() {
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [showInsightsDialog, setShowInsightsDialog] = React.useState(false);
   
-  const [entries, setEntries] = React.useState<ProductivityEntry[]>([]);
-  const [isEntriesLoading, setIsEntriesLoading] = React.useState(true);
-  const [error, setError] = React.useState<Error | null>(null);
+  // --- DATA FETCHING ---
+  const productivityQuery = useMemoFirebase(() => firestore ? collection(firestore, 'productivity') : null, [firestore]);
+  const { data: allEntries, isLoading: isEntriesLoading, error } = useCollection<ProductivityEntry>(productivityQuery);
 
-  React.useEffect(() => {
-    if (isAuthLoading) return;
-    if (!userProfile) {
-      // Redirect will be handled by useUserProfile, so just stop loading.
-      setIsEntriesLoading(false);
-      return;
-    }
-
-    const fetchProductivityEntries = async () => {
-      if (!firestore) return;
-      setIsEntriesLoading(true);
-
-      try {
-        let productivityQuery;
-        if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
-          productivityQuery = query(collection(firestore, 'productivity'));
-        } else if (userProfile.role === 'FarmManager') {
-           const managedWorkersQuery = query(collection(firestore, 'workers'), where('managerId', '==', userProfile.id));
-           const managedWorkersSnapshot = await getDocs(managedWorkersQuery);
-           const workerIds = managedWorkersSnapshot.docs.map(doc => doc.id);
-           
-           if (workerIds.length === 0) {
-             setEntries([]);
-             setIsEntriesLoading(false);
-             return;
-           }
-           
-           const productivityChunks: ProductivityEntry[] = [];
-           // Firestore 'in' queries are limited to 30 items.
-           for (let i = 0; i < workerIds.length; i += 30) {
-             const chunk = workerIds.slice(i, i + 30);
-             const q = query(collection(firestore, 'productivity'), where('workerId', 'in', chunk));
-             const snapshot = await getDocs(q);
-             snapshot.docs.forEach(doc => productivityChunks.push({ id: doc.id, ...doc.data() } as ProductivityEntry));
-           }
-           setEntries(productivityChunks);
-           setIsEntriesLoading(false);
-           return; // Early return to avoid re-running getDocs
-        } else {
-            // For workers or other roles
-            setEntries([]);
-            setIsEntriesLoading(false);
-            return;
-        }
-
-        const querySnapshot = await getDocs(productivityQuery);
-        const fetchedEntries = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        } as ProductivityEntry));
-        setEntries(fetchedEntries);
-      } catch (e: any) {
-        setError(e);
-        console.error("Error fetching productivity entries:", e);
-      } finally {
-        setIsEntriesLoading(false);
-      }
-    };
-
-    fetchProductivityEntries();
-  }, [isAuthLoading, userProfile, firestore]);
-
-  // Fetch related data to enrich the table
   const workersRef = useMemoFirebase(() => firestore && collection(firestore, 'workers'), [firestore]);
-  const { data: workersData } = useCollection<Worker>(workersRef);
+  const { data: allWorkers, isLoading: isWorkersLoading } = useCollection<Worker>(workersRef);
+  
   const fieldsRef = useMemoFirebase(() => firestore && collection(firestore, 'fields'), [firestore]);
   const { data: fieldsData } = useCollection<FarmField>(fieldsRef);
+  
   const tasksRef = useMemoFirebase(() => firestore && collection(firestore, 'tasks'), [firestore]);
   const { data: tasksData } = useCollection<FarmTask>(tasksRef);
 
-  const workerMap = React.useMemo(() => new Map(workersData?.map(w => [w.id, w.name])), [workersData]);
+  // --- DATA MAPPING & FILTERING ---
+  const workerMap = React.useMemo(() => new Map(allWorkers?.map(w => [w.id, w.name])), [allWorkers]);
   const fieldMap = React.useMemo(() => new Map(fieldsData?.map(f => [f.id, f.name])), [fieldsData]);
   const taskMap = React.useMemo(() => new Map(tasksData?.map(t => [t.id, `${t.taskType} - ${t.cropType}`])), [tasksData]);
+
+  const managedWorkerIds = React.useMemo(() => {
+    if (!userProfile || !allWorkers) return new Set<string>();
+    if (userProfile.role === 'FarmManager') {
+      return new Set(allWorkers.filter(w => w.managerId === userProfile.id).map(w => w.id));
+    }
+    return new Set<string>();
+  }, [userProfile, allWorkers]);
+
+  const entries = React.useMemo(() => {
+    if (!allEntries || !userProfile) return [];
+    if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
+      return allEntries;
+    }
+    if (userProfile.role === 'FarmManager') {
+      return allEntries.filter(entry => managedWorkerIds.has(entry.workerId));
+    }
+    return [];
+  }, [allEntries, userProfile, managedWorkerIds]);
 
   const handleGenerateInsights = async () => {
     if (!entries || entries.length === 0) {
@@ -150,7 +109,6 @@ export default function ProductivityPage() {
       return;
     }
     setIsGenerating(true);
-    // Simple text report for the AI
     const reportContent = entries.map(e => 
       `On ${e.date}, worker ${workerMap.get(e.workerId) || e.workerId} worked ${e.hoursWorkedForEntry} hours on task ${taskMap.get(e.taskId) || e.taskId} in field ${fieldMap.get(e.fieldId) || e.fieldId} and produced ${e.outputQuantity} ${e.outputUnit}.`
     ).join('\n');
@@ -173,7 +131,6 @@ export default function ProductivityPage() {
         if (!acc[name]) {
             acc[name] = { totalOutput: 0, count: 0 };
         }
-        // This is a simplification. A real app should handle different units.
         if (entry.outputUnit === 'kg') {
             acc[name].totalOutput += entry.outputQuantity;
         }
@@ -183,8 +140,7 @@ export default function ProductivityPage() {
     return Object.entries(workerTotals).map(([worker, data]) => ({ worker, output: data.totalOutput })).sort((a,b) => b.output - a.output);
   }, [entries, workerMap]);
 
-
-  if (isAuthLoading) {
+  if (isAuthLoading || isWorkersLoading) {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-16 w-16 animate-spin" /></div>;
   }
 
@@ -321,4 +277,3 @@ export default function ProductivityPage() {
     </div>
   );
 }
-

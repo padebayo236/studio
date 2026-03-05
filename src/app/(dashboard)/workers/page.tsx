@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, query, where, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { collection, doc, query, where } from 'firebase/firestore';
 import type { Worker, EmploymentType, WorkerStatus, FarmField } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -55,13 +55,9 @@ const statusVariant: { [key in WorkerStatus]: 'secondary' | 'outline' } = {
 };
 
 export default function WorkersPage() {
-  const { user, userProfile, isLoading: isAuthLoading } = useUserProfile();
+  const { userProfile, isLoading: isAuthLoading } = useUserProfile();
   const router = useRouter();
   const firestore = useFirestore();
-
-  const [workers, setWorkers] = React.useState<Worker[]>([]);
-  const [isWorkersLoading, setIsWorkersLoading] = React.useState(true);
-  const [error, setError] = React.useState<Error | null>(null);
 
   const [searchTerm, setSearchTerm] = React.useState('');
   const [filters, setFilters] = React.useState<{
@@ -72,6 +68,19 @@ export default function WorkersPage() {
     status: 'all',
   });
 
+  const workersQuery = useMemoFirebase(() => {
+    if (!firestore || !userProfile) return null;
+
+    if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
+        return collection(firestore, 'workers');
+    } else if (userProfile.role === 'FarmManager') {
+        return query(collection(firestore, 'workers'), where('managerId', '==', userProfile.id));
+    }
+    return null;
+  }, [firestore, userProfile]);
+
+  const { data: workers, isLoading: isWorkersLoading, error } = useCollection<Worker>(workersQuery);
+
   const fieldsRef = useMemoFirebase(() => firestore ? collection(firestore, 'fields') : null, [firestore]);
   const { data: fieldsData } = useCollection<FarmField>(fieldsRef);
 
@@ -79,46 +88,6 @@ export default function WorkersPage() {
     if (!fieldsData) return new Map<string, string>();
     return new Map(fieldsData.map(f => [f.id, f.name]));
   }, [fieldsData]);
-
-
-  React.useEffect(() => {
-    if (isAuthLoading) return;
-    if (!user) {
-      router.replace('/login');
-      return;
-    }
-    if (!userProfile || !firestore) {
-      setIsWorkersLoading(false);
-      return;
-    }
-
-    let workersQuery;
-    if (userProfile.role === 'Admin' || userProfile.role === 'Accountant') {
-        workersQuery = collection(firestore, 'workers');
-    } else if (userProfile.role === 'FarmManager') {
-        workersQuery = query(collection(firestore, 'workers'), where('managerId', '==', userProfile.id));
-    } else {
-        setIsWorkersLoading(false);
-        return;
-    }
-
-    const unsubscribe = onSnapshot(workersQuery, 
-      (snapshot) => {
-        const fetchedWorkers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Worker));
-        setWorkers(fetchedWorkers);
-        setIsWorkersLoading(false);
-      },
-      (err) => {
-        console.error("Error fetching workers:", err);
-        setError(err);
-        setIsWorkersLoading(false);
-      }
-    );
-    
-    return () => unsubscribe();
-
-  }, [isAuthLoading, user, userProfile, firestore, router]);
-
 
   const handleDeactivate = (workerId: string) => {
     if (!firestore) return;
@@ -351,4 +320,3 @@ export default function WorkersPage() {
     </Card>
   );
 }
-
