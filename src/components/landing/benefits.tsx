@@ -1,4 +1,3 @@
-
 import { Check } from "lucide-react";
 
 const benefits = [
@@ -13,7 +12,7 @@ const benefits = [
 export function LandingBenefits() {
   return (
     <section id="benefits" className="w-full py-16 md:py-24 lg:py-32 bg-background">
-      <div className="container px-4 md:px-6">
+      <div className="mx-auto max-w-[1200px] px-4 md:px-6">
         <div className="flex flex-col items-center justify-center space-y-4 text-center">
             <div className="space-y-3 max-w-3xl">
                 <h2 className="text-3xl font-bold tracking-tighter md:text-4xl/tight">

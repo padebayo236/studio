@@ -1,8 +1,7 @@
-
 export function LandingHowItWorks() {
   return (
     <section id="how-it-works" className="w-full py-16 md:py-24 lg:py-32">
-      <div className="container px-4 md:px-6">
+      <div className="mx-auto max-w-[1200px] px-4 md:px-6">
         <div className="flex flex-col items-center justify-center space-y-4 text-center">
           <div className="space-y-3 max-w-3xl">
             <div className="inline-block rounded-lg bg-primary/10 px-3 py-1 text-sm font-medium text-primary">

@@ -1,4 +1,3 @@
-
 import Link from "next/link";
 import { AgriProLogo } from "@/components/icons";
 
@@ -6,7 +5,7 @@ export function LandingFooter() {
   const year = new Date().getFullYear();
   return (
     <footer className="w-full border-t">
-      <div className="container flex flex-col items-center justify-between gap-4 py-6 sm:flex-row md:py-8">
+      <div className="mx-auto flex max-w-[1200px] flex-col items-center justify-between gap-4 px-4 py-6 sm:flex-row md:px-6 md:py-8">
         <div className="flex items-center gap-2">
             <AgriProLogo className="h-5 w-5" />
             <p className="text-sm text-muted-foreground">
