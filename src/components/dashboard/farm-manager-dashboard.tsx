@@ -7,9 +7,11 @@ import {
   ClipboardList,
   UserCheck,
   AlertTriangle,
+  Tractor,
+  UserX,
 } from 'lucide-react';
 import { useUserProfile } from '@/hooks/use-user-profile';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import {
   collection,
   query,
@@ -17,18 +19,40 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { format } from 'date-fns';
-import type { FarmTask, Worker } from '@/lib/types';
+import type { FarmTask, Worker, ProductivityEntry } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Pie, PieChart, Cell, ResponsiveContainer } from 'recharts';
+import type { ChartConfig } from '@/components/ui/chart';
+
+const taskChartConfig = {
+    'Pending': { label: 'Pending', color: 'hsl(var(--chart-2))' },
+    'In Progress': { label: 'In Progress', color: 'hsl(var(--chart-3))' },
+    'Completed': { label: 'Completed', color: 'hsl(var(--chart-1))' },
+} satisfies ChartConfig;
+
+const productivityChartConfig = {
+    output: { label: 'Output (kg)', color: 'hsl(var(--primary))' },
+} satisfies ChartConfig;
+
 
 export function FarmManagerDashboard() {
   const { userProfile } = useUserProfile();
   const firestore = useFirestore();
+  
   const [stats, setStats] = React.useState({
-    presentWorkers: '-',
-    totalWorkers: '-',
-    activeTasks: '-',
-    overdueTasks: '-',
+    presentWorkers: 0,
+    totalWorkers: 0,
+    absentWorkers: 0,
+    activeTasks: 0,
+    overdueTasks: 0,
+    todaysOutput: 0,
   });
+
+  const [taskStatusData, setTaskStatusData] = React.useState<any[]>([]);
+  const [workerProductivity, setWorkerProductivity] = React.useState<any[]>([]);
+
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -37,7 +61,7 @@ export function FarmManagerDashboard() {
       return;
     };
 
-    const fetchManagerData = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
       try {
         const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -52,39 +76,31 @@ export function FarmManagerDashboard() {
           (doc) => ({ id: doc.id, ...(doc.data() as Worker) })
         );
         const workerIds = managedWorkers.map((w) => w.id);
+        const workerMap = new Map(managedWorkers.map(w => [w.id, w.name]));
         const totalWorkers = managedWorkers.length;
 
+        // 2. Get attendance for today
         let presentWorkers = 0;
         if (workerIds.length > 0) {
-          // Firestore 'in' query is limited to 30 items. This is a limitation for now.
-          const chunks = [];
-          for (let i = 0; i < workerIds.length; i += 30) {
-            chunks.push(workerIds.slice(i, i + 30));
-          }
-          
-          let presentCount = 0;
-          for (const chunk of chunks) {
-            const attendanceQuery = query(
-              collection(firestore, 'attendance'),
-              where('workerId', 'in', chunk),
-              where('date', '==', todayStr)
-            );
-            const attendanceSnapshot = await getDocs(attendanceQuery);
-            presentCount += attendanceSnapshot.size;
-          }
-          presentWorkers = presentCount;
+          const attendanceQuery = query(
+            collection(firestore, 'attendance'),
+            where('workerId', 'in', workerIds.slice(0,30)),
+            where('date', '==', todayStr)
+          );
+          const attendanceSnapshot = await getDocs(attendanceQuery);
+          presentWorkers = attendanceSnapshot.size;
         }
 
-        // 2. Get tasks managed by this manager
+        // 3. Get tasks
         const tasksQuery = query(
           collection(firestore, 'tasks'),
           where('managerId', '==', userProfile.id)
         );
         const tasksSnapshot = await getDocs(tasksQuery);
         const managedTasks = tasksSnapshot.docs.map(
-          (doc) => ({ id: doc.id, ...(doc.data() as FarmTask) })
+          (doc) => doc.data() as FarmTask
         );
-
+        
         const activeTasks = managedTasks.filter(
           (t) => t.status === 'Pending' || t.status === 'In Progress'
         ).length;
@@ -92,26 +108,48 @@ export function FarmManagerDashboard() {
           (t) => t.status !== 'Completed' && new Date(t.deadline) < new Date()
         ).length;
 
+        const taskStatusCounts = managedTasks.reduce((acc, task) => {
+            acc[task.status] = (acc[task.status] || 0) + 1;
+            return acc;
+        }, {} as Record<FarmTask['status'], number>);
+        setTaskStatusData(Object.entries(taskStatusCounts).map(([status, count]) => ({ name: status, value: count, fill: `var(--color-${status.replace(' ', '')})` })));
+        
+        // 4. Get Productivity
+        let todaysOutput = 0;
+        let productivityTotals: Record<string, number> = {};
+        if (workerIds.length > 0) {
+            const productivityQuery = query(
+                collection(firestore, 'productivity'),
+                where('workerId', 'in', workerIds.slice(0, 30)),
+                where('date', '==', todayStr)
+            );
+            const productivitySnapshot = await getDocs(productivityQuery);
+            productivitySnapshot.forEach(doc => {
+                const entry = doc.data() as ProductivityEntry;
+                todaysOutput += entry.outputQuantity;
+                const workerName = workerMap.get(entry.workerId) || 'Unknown';
+                productivityTotals[workerName] = (productivityTotals[workerName] || 0) + entry.outputQuantity;
+            });
+        }
+        setWorkerProductivity(Object.entries(productivityTotals).map(([name, output]) => ({ name, output })));
+
         setStats({
-          presentWorkers: String(presentWorkers),
-          totalWorkers: String(totalWorkers),
-          activeTasks: String(activeTasks),
-          overdueTasks: String(overdueTasks),
+          presentWorkers,
+          totalWorkers,
+          absentWorkers: totalWorkers - presentWorkers,
+          activeTasks,
+          overdueTasks,
+          todaysOutput
         });
+
       } catch (error) {
         console.error('Error fetching manager dashboard data:', error);
-        setStats({
-          presentWorkers: 'Error',
-          totalWorkers: 'Error',
-          activeTasks: 'Error',
-          overdueTasks: 'Error',
-        });
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchManagerData();
+    fetchData();
   }, [userProfile, firestore]);
   
   if (isLoading) {
@@ -123,31 +161,56 @@ export function FarmManagerDashboard() {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <StatCard
-        title="My Workers"
-        value={stats.totalWorkers}
-        icon={Users}
-        description="Total workers you manage"
-      />
-      <StatCard
-        title="Workers Present"
-        value={stats.presentWorkers}
-        icon={UserCheck}
-        description="Managed workers clocked in today"
-      />
-      <StatCard
-        title="Active Tasks"
-        value={stats.activeTasks}
-        icon={ClipboardList}
-        description="Your assigned tasks in progress"
-      />
-      <StatCard
-        title="Overdue Tasks"
-        value={stats.overdueTasks}
-        icon={AlertTriangle}
-        description="Tasks that are past their deadline"
-      />
+    <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <StatCard title="My Workers" value={String(stats.totalWorkers)} icon={Users} description="Total workers you manage" />
+            <StatCard title="Workers Present" value={String(stats.presentWorkers)} icon={UserCheck} description="Managed workers clocked in today" />
+            <StatCard title="Workers Absent" value={String(stats.absentWorkers)} icon={UserX} description="Workers not clocked in today" />
+            <StatCard title="Active Tasks" value={String(stats.activeTasks)} icon={ClipboardList} description="Tasks in progress or pending" />
+            <StatCard title="Today's Output" value={`${stats.todaysOutput} kg`} icon={Tractor} description="Total output recorded today" />
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
+                <CardHeader>
+                    <CardTitle>Daily Worker Productivity</CardTitle>
+                    <CardDescription>Total output (kg) per worker for today.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ChartContainer config={productivityChartConfig} className="w-full h-[300px]">
+                        <ResponsiveContainer>
+                            <BarChart data={workerProductivity} accessibilityLayer>
+                                <CartesianGrid vertical={false} />
+                                <XAxis dataKey="name" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                                <YAxis />
+                                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
+                                <Bar dataKey="output" fill="var(--color-output)" radius={4} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </ChartContainer>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Task Status</CardTitle>
+                    <CardDescription>Overview of all assigned tasks.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center">
+                    <ChartContainer config={taskChartConfig} className="mx-auto aspect-square h-[300px]">
+                        <ResponsiveContainer>
+                            <PieChart>
+                                <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+                                <Pie data={taskStatusData} dataKey="value" nameKey="name" innerRadius={60} strokeWidth={5}>
+                                    {taskStatusData.map((entry) => (
+                                        <Cell key={`cell-${entry.name}`} fill={entry.fill} />
+                                    ))}
+                                </Pie>
+                                <ChartLegend content={<ChartLegendContent nameKey="name" />} className="[&>*]:justify-center" />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </ChartContainer>
+                </CardContent>
+            </Card>
+        </div>
     </div>
   );
 }

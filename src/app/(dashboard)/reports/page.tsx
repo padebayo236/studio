@@ -61,7 +61,7 @@ export default function ReportsPage() {
         return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-16 w-16 animate-spin" /></div>;
     }
 
-    if (!userProfile || !['Admin', 'FarmManager', 'Accountant'].includes(userProfile.role)) {
+    if (!userProfile || !['Admin', 'Accountant'].includes(userProfile.role)) {
         return (
           <div className="flex min-h-screen items-center justify-center">
             <Card className="w-1/2">
@@ -238,4 +238,3 @@ export default function ReportsPage() {
         </div>
     );
 }
-

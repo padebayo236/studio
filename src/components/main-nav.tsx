@@ -16,23 +16,29 @@ import {
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import type { UserRole } from "@/lib/types"
 
-const navItems = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/workers", icon: Users, label: "Workers" },
-  { href: "/attendance", icon: Clock, label: "Attendance" },
-  { href: "/tasks", icon: ClipboardList, label: "Tasks" },
-  { href: "/productivity", icon: Tractor, label: "Productivity" },
-  { href: "/fields", icon: Map, label: "Fields" },
-  { href: "/payroll", icon: DollarSign, label: "Payroll" },
-  { href: "/reports", icon: FileText, label: "Reports" },
+const allNavItems = [
+  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", roles: ['Admin', 'FarmManager', 'FarmWorker', 'Accountant'] },
+  { href: "/workers", icon: Users, label: "Workers", roles: ['Admin', 'FarmManager', 'Accountant'] },
+  { href: "/attendance", icon: Clock, label: "Attendance", roles: ['Admin', 'FarmManager', 'Accountant'] },
+  { href: "/tasks", icon: ClipboardList, label: "Tasks", roles: ['Admin', 'FarmManager'] },
+  { href: "/productivity", icon: Tractor, label: "Productivity", roles: ['Admin', 'FarmManager', 'Accountant'] },
+  { href: "/fields", icon: Map, label: "Fields", roles: ['Admin', 'FarmManager'] },
+  { href: "/payroll", icon: DollarSign, label: "Payroll", roles: ['Admin', 'Accountant'] },
+  { href: "/reports", icon: FileText, label: "Reports", roles: ['Admin', 'Accountant'] },
 ];
 
-export function MainNav({ isMobile = false }: { isMobile?: boolean }) {
+
+export function MainNav({ isMobile = false, role }: { isMobile?: boolean, role: UserRole }) {
   const pathname = usePathname()
 
   // For the dashboard link, we want it to be active for the dashboard route or the root (which redirects)
   const isDashboardActive = pathname === '/dashboard' || pathname === '/';
+
+  const navItems = allNavItems.filter(item => item.roles.includes(role));
+
+  if (!role) return null;
 
   return (
     <nav className={cn("grid items-start px-4 text-sm font-medium", isMobile && "gap-2")}>

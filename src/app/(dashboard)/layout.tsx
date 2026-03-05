@@ -29,19 +29,13 @@ export default function DashboardLayout({
     }
   }, [user, isLoading, router]);
 
-  // Auth is loading, show a full-page spinner.
-  if (isLoading) {
+  // Auth is loading, or user/profile data is not yet available.
+  if (isLoading || !user || !userProfile) {
     return (
       <div className="flex h-screen w-screen items-center justify-center">
         <Loader2 className="h-16 w-16 animate-spin" />
       </div>
     );
-  }
-  
-  // After loading, if there's no user, children won't be rendered anyway
-  // because of the redirect, but this prevents a flash of content.
-  if (!user) {
-    return null;
   }
 
   return (
@@ -56,7 +50,7 @@ export default function DashboardLayout({
               </Link>
             </div>
             <div className="flex-1 overflow-auto py-2">
-              <MainNav />
+              <MainNav role={userProfile.role} />
             </div>
           </div>
         </div>
@@ -77,7 +71,7 @@ export default function DashboardLayout({
                   </Link>
                 </div>
                 <div className="flex-1 overflow-auto py-2">
-                  <MainNav isMobile={true} />
+                  <MainNav isMobile={true} role={userProfile.role} />
                 </div>
               </SheetContent>
             </Sheet>
