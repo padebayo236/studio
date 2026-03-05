@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -26,12 +27,12 @@ import { Sparkles, Loader2 } from "lucide-react"
 import { DatePicker } from "@/components/ui/date-picker"
 import { generateTaskDescriptionAction } from "@/app/actions"
 import type { FarmTask, CropType, TaskType, FarmField, Worker } from "@/lib/types"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
+import { useFirestore } from "@/firebase"
 import { useUserProfile } from "@/hooks/use-user-profile"
-import { collection, doc, query, where } from 'firebase/firestore';
+import { useFields, useWorkers } from "@/hooks/data/use-operational-data"
+import { collection, doc } from 'firebase/firestore';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { useToast } from "@/hooks/use-toast"
-import { v4 as uuidv4 } from 'uuid';
 
 const taskSchema = z.object({
   taskType: z.string({ required_error: "Please select a task type." }),
